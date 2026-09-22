@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.ui.browse.extension.details
+package eu.kanade.tachiyomi.ui.browse.source.preferences
 
 import android.content.Context
 import android.os.Bundle
