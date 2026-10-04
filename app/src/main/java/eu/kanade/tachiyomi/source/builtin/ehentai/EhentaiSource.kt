@@ -113,6 +113,37 @@ class EhentaiSource(
     override val savedAccount: String?
         get() = if (isUserLoggedIn) "已登录 E-Hentai" else null
 
+    override val supportsFavorites: Boolean
+        get() = isUserLoggedIn
+
+    override suspend fun fetchFavoriteComics(page: Int): AlignedPageResult = withContext(Dispatchers.IO) {
+        check(isUserLoggedIn) { "E-Hentai favorites require login" }
+        val pageIndex = (page - 1).coerceAtLeast(0)
+        val url = "${getClient().getEffectiveBaseUrl()}favorites.php?favcat=-1&page=$pageIndex"
+        val html = client.newCall(GET(url, headers)).execute().use { response ->
+            check(response.isSuccessful) { "Failed to fetch E-Hentai favorites: HTTP ${response.code}" }
+            response.body.string()
+        }
+        val doc = Jsoup.parse(html)
+        check(doc.selectFirst("#loginform, form[action*='login']") == null) { "E-Hentai login expired" }
+        val mangas = doc.select("table.itg.gltc tr, div.gl1t, table.itg.glte tr, table.itg.gltm tr")
+            .mapNotNull { row ->
+                val link = row.selectFirst("a[href*='/g/']") ?: return@mapNotNull null
+                val href = link.attr("href").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val title = row.selectFirst(".glink")?.text()?.trim()
+                    ?.takeIf { it.isNotBlank() } ?: link.text().trim().ifBlank { return@mapNotNull null }
+                val image = row.selectFirst("img")?.let { it.attr("data-src").ifBlank { it.attr("src") } }
+                SManga.create().apply {
+                    url = href
+                    this.title = title
+                    thumbnail_url = image
+                    status = SManga.COMPLETED
+                }
+            }
+        val hasNext = doc.selectFirst("a#dnext") != null
+        AlignedPageResult(mangas.distinctBy { it.url }, hasNext)
+    }
+
     override suspend fun login(account: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val cookie = if (account.contains("ipb_member_id") || account.contains("=")) {
