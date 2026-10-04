@@ -15,6 +15,7 @@ import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.webview.WebViewScreenContent
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import tachiyomi.presentation.core.screens.LoadingScreen
 
@@ -57,10 +58,17 @@ class WebViewScreen(
             onClearCookies = viewModel::clearCookies,
             onPageFinished = { webView, pageUrl ->
                 val host = pageUrl.toHttpUrlOrNull()?.host
-                if (ehLogin && !importing && (host == "forums.e-hentai.org" || (awaitingEx && host in listOf("exhentai.org", "e-hentai.org")))) {
+                if (ehLogin && !importing && (host == "forums.e-hentai.org" || (!awaitingEx && host == "e-hentai.org") || (awaitingEx && host in listOf("exhentai.org", "e-hentai.org")))) {
                     importing = true
                     scope.launch {
-                        val result = viewModel.importEhLogin()
+                        delay(750)
+                        var result = viewModel.importEhLogin()
+                        repeat(2) { attempt ->
+                            if (result.isSuccess) return@repeat
+                            result = viewModel.importEhLogin()
+                            if (result.isSuccess) return@repeat
+                            if (attempt < 2) delay(1000)
+                        }
                         if (result.isSuccess) {
                             if (!awaitingEx) {
                                 awaitingEx = true

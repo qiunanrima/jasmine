@@ -133,6 +133,9 @@ android {
 
     packaging {
         jniLibs {
+            // Compress native libraries in the APK to reduce download size.
+            useLegacyPackaging = true
+
             keepDebugSymbols += listOf(
                 "libandroidx.graphics.path",
                 "libarchive-jni",

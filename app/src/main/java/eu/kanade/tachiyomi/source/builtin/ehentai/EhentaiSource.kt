@@ -162,6 +162,11 @@ class EhentaiSource(
                 "Cookie 验证失败，请重新登录"
             }
         }
+        persistCookie(cookie)
+    }
+
+    private fun persistCookie(cookie: String) {
+        require(hasAuthCookies(cookie)) { "Cookie 缺少有效的 ipb_member_id 或 ipb_pass_hash" }
         getSourcePreferences().edit().putString(PREF_KEY_COOKIE, cookie).apply()
         _ehClient?.updateCookie(cookie)
         val manager = CookieManager.getInstance()
@@ -180,6 +185,7 @@ class EhentaiSource(
 
     suspend fun importWebLoginCookies(): Result<Unit> {
         val manager = CookieManager.getInstance()
+        manager.flush()
         val cookies = linkedMapOf<String, String>()
         for (url in listOf("https://exhentai.org", "https://e-hentai.org", "https://forums.e-hentai.org")) {
             manager.getCookie(url).orEmpty().split(';').forEach {
@@ -189,7 +195,10 @@ class EhentaiSource(
             }
         }
         val cookie = cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
-        val result = withContext(Dispatchers.IO) { runCatching { validateAndSaveCookie(cookie) } }
+        val result = withContext(Dispatchers.IO) {
+            runCatching { validateAndSaveCookie(cookie) }
+                .recoverCatching { persistCookie(cookie) }
+        }
         return result
     }
 
