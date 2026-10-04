@@ -12,6 +12,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.source.builtin.ehentai.EhentaiSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toShareIntent
@@ -74,4 +75,10 @@ class WebViewViewModel(
     }
 
     fun defaultUserAgentProvider() = network.defaultUserAgentProvider()
+
+    suspend fun importEhLogin(): Result<Unit> {
+        val source = sourceId?.let { sourceManager.get(it) } as? EhentaiSource
+            ?: return Result.failure(IllegalStateException("E-Hentai source unavailable"))
+        return source.importWebLoginCookies()
+    }
 }

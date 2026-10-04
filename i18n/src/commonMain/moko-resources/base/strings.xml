@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Mihon</string>
+    <string name="app_name" translatable="false">Jasmine</string>
 
     <!-- Generic strings -->
     <string name="on">On</string>
@@ -481,6 +481,8 @@
     <string name="scale_type_smart_fit">Smart fit</string>
     <string name="pref_navigate_pan">Pan wide images</string>
     <string name="pref_landscape_zoom">Automatically zoom into wide images</string>
+    <string name="pref_landscape_comments">Show comments sidebar in landscape</string>
+    <string name="pref_landscape_comments_side">Comments sidebar position</string>
     <string name="pref_zoom_start">Zoom start position</string>
     <string name="zoom_start_automatic">Automatic</string>
     <string name="zoom_start_left">Left</string>
@@ -800,6 +802,7 @@
     <string name="sort_by_number">By chapter number</string>
     <string name="sort_by_upload_date">By upload date</string>
     <string name="manga_download">Download</string>
+    <string name="download_all">All</string>
     <string name="download_unread">Unread</string>
     <string name="download_bookmarked">Bookmarked</string>
     <string name="custom_cover">Custom cover</string>

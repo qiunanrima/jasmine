@@ -60,23 +60,26 @@ fun TabbedScreen(
                 end = contentPadding.calculateEndPadding(LocalLayoutDirection.current),
             ),
         ) {
-            PrimaryTabRow(
-                selectedTabIndex = state.currentPage,
-                modifier = Modifier.zIndex(1f),
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    Tab(
-                        selected = state.currentPage == index,
-                        onClick = { scope.launch { state.animateScrollToPage(index) } },
-                        text = { TabText(text = stringResource(tab.titleRes), badgeCount = tab.badgeNumber) },
-                        unselectedContentColor = MaterialTheme.colorScheme.onSurface,
-                    )
+            if (tabs.size > 1) {
+                PrimaryTabRow(
+                    selectedTabIndex = state.currentPage,
+                    modifier = Modifier.zIndex(1f),
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        Tab(
+                            selected = state.currentPage == index,
+                            onClick = { scope.launch { state.animateScrollToPage(index) } },
+                            text = { TabText(text = stringResource(tab.titleRes), badgeCount = tab.badgeNumber) },
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
             }
 
             HorizontalPager(
                 modifier = Modifier.fillMaxSize(),
                 state = state,
+                userScrollEnabled = tabs.size > 1,
                 verticalAlignment = Alignment.Top,
             ) { page ->
                 tabs[page].content(

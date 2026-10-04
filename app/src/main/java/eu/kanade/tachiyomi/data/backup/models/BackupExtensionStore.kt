@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
-import mihon.domain.extension.model.ExtensionStore
+
 
 @Serializable
 class BackupExtensionStore(
@@ -16,15 +16,3 @@ class BackupExtensionStore(
     @ProtoNumber(8) var extensionListUrl: String?,
 )
 
-val backupExtensionStoreMapper = { store: ExtensionStore ->
-    BackupExtensionStore(
-        indexUrl = store.indexUrl,
-        name = store.name,
-        badgeLabel = store.badgeLabel,
-        signingKey = store.signingKey,
-        contactWebsite = store.contact.website,
-        contactDiscord = store.contact.discord,
-        isLegacy = store.isLegacy,
-        extensionListUrl = store.extensionListUrl,
-    )
-}

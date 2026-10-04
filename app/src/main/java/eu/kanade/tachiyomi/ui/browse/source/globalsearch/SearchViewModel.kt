@@ -6,7 +6,6 @@ import androidx.compose.runtime.produceState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -33,7 +32,6 @@ abstract class SearchViewModel(
     initialState: State = State(),
     sourcePreferences: SourcePreferences,
     private val sourceManager: SourceManager,
-    private val extensionManager: ExtensionManager,
     private val networkToLocalManga: NetworkToLocalManga,
     private val getManga: GetManga,
     private val preferences: SourcePreferences,
@@ -99,17 +97,7 @@ abstract class SearchViewModel(
     }
 
     private suspend fun getSelectedSources(): List<Source> {
-        val enabledSources = getEnabledSources()
-
-        val filter = extensionFilter
-        if (filter.isNullOrEmpty()) {
-            return enabledSources
-        }
-
-        return extensionManager.getLoadedExtensions()
-            .filter { it.pkgName == filter }
-            .flatMap { it.sources }
-            .filter { it in enabledSources }
+        return getEnabledSources()
     }
 
     fun updateSearchQuery(query: String?) {
@@ -168,6 +156,7 @@ abstract class SearchViewModel(
                         }
 
                         val titles = page.mangas
+                            .take(20)
                             .map { it.toDomainManga(source.id) }
                             .distinctBy { it.url }
                             .let { networkToLocalManga(it) }
@@ -214,7 +203,7 @@ abstract class SearchViewModel(
     data class State(
         val from: Manga? = null,
         val searchQuery: String? = null,
-        val sourceFilter: SourceFilter = SourceFilter.PinnedOnly,
+        val sourceFilter: SourceFilter = SourceFilter.All,
         val onlyShowHasResults: Boolean = false,
         val items: Map<Source, SearchItemResult> = mapOf(),
         val dialog: Dialog? = null,

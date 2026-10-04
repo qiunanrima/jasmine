@@ -118,6 +118,28 @@ internal fun ColumnScope.GeneralPage(viewModel: ReaderSettingsViewModel) {
     )
 
     CheckboxItem(
+        label = stringResource(MR.strings.pref_landscape_comments),
+        pref = viewModel.preferences.landscapeComments,
+    )
+
+    val landscapeComments by viewModel.preferences.landscapeComments.collectAsState()
+    if (landscapeComments) {
+        val commentsOnLeft by viewModel.preferences.landscapeCommentsOnLeft.collectAsState()
+        SettingsChipRow(MR.strings.pref_landscape_comments_side) {
+            FilterChip(
+                selected = commentsOnLeft,
+                onClick = { viewModel.preferences.landscapeCommentsOnLeft.set(true) },
+                label = { Text(stringResource(MR.strings.nav_zone_left)) },
+            )
+            FilterChip(
+                selected = !commentsOnLeft,
+                onClick = { viewModel.preferences.landscapeCommentsOnLeft.set(false) },
+                label = { Text(stringResource(MR.strings.nav_zone_right)) },
+            )
+        }
+    }
+
+    CheckboxItem(
         label = stringResource(MR.strings.pref_read_with_long_tap),
         pref = viewModel.preferences.readWithLongTap,
     )

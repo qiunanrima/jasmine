@@ -32,6 +32,11 @@ class MetroInjektRegistrar(
 
         NetworkHelper::class.java to { graph.networkHelper },
         JavaScriptEngine::class.java to { graph.javaScriptEngine },
+
+        tachiyomi.domain.source.service.SourceManager::class.java to { graph.sourceManager },
+        tachiyomi.domain.manga.interactor.NetworkToLocalManga::class.java to { graph.networkToLocalManga },
+        tachiyomi.domain.manga.interactor.GetManga::class.java to { graph.getManga },
+        eu.kanade.tachiyomi.data.library.LibraryFavoritesSync::class.java to { graph.libraryFavoritesSync },
     )
 
     override fun <R : Any> getInstance(forType: Type): R = getInstanceOrNull(forType)

@@ -49,7 +49,7 @@ class ReaderPreferences(
         65,
     )
 
-    val showReadingMode: Preference<Boolean> = preferenceStore.getBoolean("pref_show_reading_mode", true)
+    val showReadingMode: Preference<Boolean> = preferenceStore.getBoolean("pref_show_reading_mode", false)
 
     val fullscreen: Preference<Boolean> = preferenceStore.getBoolean("fullscreen", true)
 
@@ -59,7 +59,7 @@ class ReaderPreferences(
 
     val defaultReadingMode: Preference<Int> = preferenceStore.getInt(
         "pref_default_reading_mode_key",
-        ReadingMode.RIGHT_TO_LEFT.flagValue,
+        ReadingMode.WEBTOON.flagValue,
     )
 
     val defaultOrientationType: Preference<Int> = preferenceStore.getInt(
@@ -88,6 +88,16 @@ class ReaderPreferences(
     val navigateToPan: Preference<Boolean> = preferenceStore.getBoolean("navigate_pan", true)
 
     val landscapeZoom: Preference<Boolean> = preferenceStore.getBoolean("landscape_zoom", true)
+
+    val landscapeComments: Preference<Boolean> = preferenceStore.getBoolean(
+        "landscape_comments",
+        false,
+    )
+
+    val landscapeCommentsOnLeft: Preference<Boolean> = preferenceStore.getBoolean(
+        "landscape_comments_on_left",
+        false,
+    )
 
     val cropBordersWebtoon: Preference<Boolean> = preferenceStore.getBoolean("crop_borders_webtoon", false)
 
@@ -135,11 +145,6 @@ class ReaderPreferences(
     val dualPageRotateToFitInvertWebtoon: Preference<Boolean> = preferenceStore.getBoolean(
         "pref_dual_page_rotate_invert_webtoon",
         false,
-    )
-
-    val dualPageView: Preference<DualPageView> = preferenceStore.getEnum(
-        "pref_dual_page_view",
-        DualPageView.NEVER,
     )
 
     // endregion
@@ -199,24 +204,6 @@ class ReaderPreferences(
 
     // endregion
 
-    // region WebGpu
-
-    val transitionAnimation: Preference<TransitionAnimation> =
-        preferenceStore.getEnum("webgpu_transition_animation", TransitionAnimation.BASIC)
-
-    val transitionAnimationDual: Preference<TransitionAnimation> =
-        preferenceStore.getEnum("webgpu_dual_transition_animation", TransitionAnimation.BASIC)
-
-    val cutoutMode: Preference<CutoutMode> = preferenceStore.getEnum("webgpu_cutout_mode", CutoutMode.AVOID)
-
-    val cutoutModeDual: Preference<CutoutMode> = preferenceStore.getEnum("webgpu_dual_cutout_mode", CutoutMode.IGNORE)
-
-    val continuousMinWidth: Preference<Int> = preferenceStore.getInt("webgpu_continuous_minwidth", 100)
-
-    val continuousGap: Preference<Int> = preferenceStore.getInt("webgpu_continuous_gap", 10)
-
-    // endregion
-
     enum class FlashColor {
         BLACK,
         WHITE,
@@ -247,43 +234,6 @@ class ReaderPreferences(
         LOWEST(47),
     }
 
-    enum class TransitionAnimation(val titleRes: StringResource) {
-        BASIC(MR.strings.transition_animation_basic),
-        FLIP(MR.strings.transition_animation_flip),
-        FLIP_LEFT(MR.strings.transition_animation_flip_left),
-        FLIP_RIGHT(
-            MR.strings.transition_animation_flip_right,
-        ),
-        STACK_LEFT(MR.strings.transition_animation_stack_left),
-        STACK_RIGHT(MR.strings.transition_animation_stack_right),
-        STACK_UP(
-            MR.strings.transition_animation_stack_up,
-        ),
-        STACK_DOWN(MR.strings.transition_animation_stack_down),
-        SPHERE(MR.strings.transition_animation_sphere),
-        CUBE_INSIDE(
-            MR.strings.transition_animation_cube_inside,
-        ),
-        CUBE_OUTSIDE(MR.strings.transition_animation_cube_outside),
-        FADE(MR.strings.transition_animation_fade),
-        FADE_WHITE(
-            MR.strings.transition_animation_fade_white,
-        ),
-        NONE(MR.strings.transition_animation_none),
-    }
-
-    enum class CutoutMode(val titleRes: StringResource) {
-        IGNORE(MR.strings.cutout_mode_ignore),
-        AVOID(MR.strings.cutout_mode_avoid),
-        SHIFT(MR.strings.cutout_mode_shift),
-    }
-
-    enum class DualPageView(val titleRes: StringResource) {
-        NEVER(MR.strings.dual_page_view_never),
-        ALWAYS(MR.strings.dual_page_view_always),
-        WIDE(MR.strings.dual_page_view_wide),
-    }
-
     companion object {
         const val WEBTOON_PADDING_MIN = 0
         const val WEBTOON_PADDING_MAX = 25
@@ -306,13 +256,6 @@ class ReaderPreferences(
             MR.strings.scale_type_fit_height,
             MR.strings.scale_type_original_size,
             MR.strings.scale_type_smart_fit,
-        )
-
-        val ImageScaleTypeWebGpuViewer = listOf(
-            MR.strings.scale_type_fit_screen,
-            MR.strings.scale_type_fit_width,
-            MR.strings.scale_type_fit_height,
-            MR.strings.scale_type_original_size,
         )
 
         val ZoomStart = listOf(

@@ -6,7 +6,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
+import tachiyomi.presentation.core.components.material.PullRefresh
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import eu.kanade.presentation.components.AppBar
@@ -77,14 +86,30 @@ fun HistoryScreen(
                     modifier = Modifier.padding(contentPadding),
                 )
             } else {
-                HistoryScreenContent(
-                    history = it,
-                    contentPadding = contentPadding,
-                    onClickCover = { history -> onClickCover(history.mangaId) },
-                    onClickResume = { history -> onClickResume(history.mangaId, history.chapterId) },
-                    onClickDelete = { item -> onDialogChange(HistoryViewModel.Dialog.Delete(item)) },
-                    onClickFavorite = { history -> onClickFavorite(history.mangaId) },
-                )
+                val scope = rememberCoroutineScope()
+                var isRefreshing by remember { mutableStateOf(false) }
+
+                PullRefresh(
+                    refreshing = isRefreshing,
+                    enabled = !isRefreshing,
+                    onRefresh = {
+                        scope.launch {
+                            isRefreshing = true
+                            delay(500.milliseconds)
+                            isRefreshing = false
+                        }
+                    },
+                    indicatorPadding = contentPadding,
+                ) {
+                    HistoryScreenContent(
+                        history = it,
+                        contentPadding = contentPadding,
+                        onClickCover = { history -> onClickCover(history.mangaId) },
+                        onClickResume = { history -> onClickResume(history.mangaId, history.chapterId) },
+                        onClickDelete = { item -> onDialogChange(HistoryViewModel.Dialog.Delete(item)) },
+                        onClickFavorite = { history -> onClickFavorite(history.mangaId) },
+                    )
+                }
             }
         }
     }
@@ -124,6 +149,7 @@ private fun HistoryScreenContent(
                     HistoryItem(
                         modifier = Modifier.animateItem(),
                         history = value,
+                        sourceName = item.sourceName,
                         onClickCover = { onClickCover(value) },
                         onClickResume = { onClickResume(value) },
                         onClickDelete = { onClickDelete(value) },
@@ -137,7 +163,7 @@ private fun HistoryScreenContent(
 
 sealed interface HistoryUiModel {
     data class Header(val date: LocalDate) : HistoryUiModel
-    data class Item(val item: HistoryWithRelations) : HistoryUiModel
+    data class Item(val item: HistoryWithRelations, val sourceName: String? = null) : HistoryUiModel
 }
 
 @PreviewLightDark

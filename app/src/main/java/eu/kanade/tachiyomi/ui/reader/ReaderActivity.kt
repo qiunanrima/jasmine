@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -22,18 +23,24 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.graphics.Insets
@@ -60,6 +67,7 @@ import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.databinding.ReaderActivityBinding
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult.AddToLibraryFirst
@@ -74,7 +82,6 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
-import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.readerBackgroundColor
@@ -249,6 +256,19 @@ class ReaderActivity : BaseActivity() {
     private fun ReaderActivityBinding.setComposeOverlay(): Unit = composeOverlay.setComposeContent {
         val state by viewModel.state.collectAsState()
         val showPageNumber by readerPreferences.showPageNumber.collectAsState()
+        val landscapeComments by readerPreferences.landscapeComments.collectAsState()
+        val landscapeCommentsOnLeft by readerPreferences.landscapeCommentsOnLeft.collectAsState()
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val commentSource = state.source as? BaseAlignedMangaSource
+        val commentComicId = remember(commentSource, state.manga?.url) {
+            state.manga?.url?.let { commentSource?.extractComicId(it) }
+        }
+        var sidebarHasContent by remember(commentSource, commentComicId, isLandscape, landscapeComments) {
+            androidx.compose.runtime.mutableStateOf(false)
+        }
+        var sidebarLoadCompleted by remember(commentSource, commentComicId, isLandscape, landscapeComments) {
+            androidx.compose.runtime.mutableStateOf(false)
+        }
         val settingsviewModel = remember {
             ReaderSettingsViewModel(
                 readerState = viewModel.state,
@@ -270,6 +290,39 @@ class ReaderActivity : BaseActivity() {
             }
 
             ContentOverlay(state = state)
+
+            val showComments = landscapeComments && isLandscape
+            val showCommentSidebar = showComments &&
+                (!sidebarLoadCompleted || sidebarHasContent)
+            if (showCommentSidebar) {
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val sidebarWidth = (maxWidth * 0.42f)
+                        .coerceIn(300.dp, 360.dp)
+                    ReaderCommentSidebar(
+                        source = commentSource,
+                        comicId = commentComicId,
+                        enabled = true,
+                        onHasContentChanged = { hasContent ->
+                            sidebarLoadCompleted = true
+                            sidebarHasContent = hasContent
+                            updateReaderCommentSidebarLayout(
+                                visible = hasContent,
+                                onLeft = landscapeCommentsOnLeft,
+                            )
+                        },
+                        modifier = Modifier
+                            .align(if (landscapeCommentsOnLeft) Alignment.CenterStart else Alignment.CenterEnd)
+                            .width(sidebarWidth)
+                            .fillMaxHeight(),
+                    )
+                }
+            }
+            SideEffect {
+                updateReaderCommentSidebarLayout(
+                    visible = showCommentSidebar,
+                    onLeft = landscapeCommentsOnLeft,
+                )
+            }
 
             AppBars(state = state)
         }
@@ -331,6 +384,33 @@ class ReaderActivity : BaseActivity() {
             }
             null -> {}
         }
+    }
+
+    private fun updateReaderCommentSidebarLayout(visible: Boolean, onLeft: Boolean) {
+        if (!::binding.isInitialized) return
+
+        val sidebarWidth = if (visible) readerCommentSidebarWidthPx() else 0
+        val leftMargin = if (visible && onLeft) sidebarWidth else 0
+        val rightMargin = if (visible && !onLeft) sidebarWidth else 0
+
+        fun updateMargins(view: View) {
+            (view.layoutParams as? android.widget.FrameLayout.LayoutParams)?.let { params ->
+                params.leftMargin = leftMargin
+                params.rightMargin = rightMargin
+                view.layoutParams = params
+            }
+        }
+
+        updateMargins(binding.readerContainer)
+        updateMargins(binding.navigationOverlay)
+    }
+
+    private fun readerCommentSidebarWidthPx(): Int {
+        val metrics = resources.displayMetrics
+        val preferred = (360f * metrics.density).toInt()
+        val minimum = (300f * metrics.density).toInt()
+        val maximum = (metrics.widthPixels * 0.42f).toInt()
+        return preferred.coerceIn(minimum, maximum.coerceAtLeast(minimum))
     }
 
     /**
@@ -476,7 +556,7 @@ class ReaderActivity : BaseActivity() {
             onShare = ::shareChapter.takeIf { isHttpSource },
 
             chapterNavigatorType = if (!verticalNavigator) {
-                if (state.viewer is R2LPagerViewer || (state.viewer as? WebGpuViewer)?.isReversed ?: false) {
+                if (state.viewer is R2LPagerViewer) {
                     ChapterNavigatorType.HORIZONTAL_RTL
                 } else {
                     ChapterNavigatorType.HORIZONTAL_LTR

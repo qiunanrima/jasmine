@@ -14,20 +14,25 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import eu.kanade.presentation.browse.components.BrowseSourceComfortableGrid
 import eu.kanade.presentation.browse.components.BrowseSourceCompactGrid
+import eu.kanade.presentation.browse.components.BrowseSourceDetailedList
 import eu.kanade.presentation.browse.components.BrowseSourceList
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
 import kotlinx.coroutines.flow.StateFlow
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
+import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
+import mihon.icons.materialsymbols.rounded.Settings
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -48,6 +53,8 @@ fun BrowseSourceContent(
     onLocalSourceHelpClick: () -> Unit,
     onMangaClick: (Manga) -> Unit,
     onMangaLongClick: (Manga) -> Unit,
+    onLoginClick: (() -> Unit)? = null,
+    onSettingsClick: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
 
@@ -77,71 +84,119 @@ fun BrowseSourceContent(
         return
     }
 
-    if (mangaList.itemCount == 0) {
-        EmptyScreen(
-            modifier = Modifier.padding(contentPadding),
-            message = when (errorState) {
-                is LoadState.Error -> getErrorMessage(errorState)
-                else -> stringResource(MR.strings.no_results_found)
-            },
-            actions = if (source is LocalSource) {
-                listOf(
-                    EmptyScreenAction(
-                        stringRes = MR.strings.local_source_help_guide,
-                        icon = MaterialSymbols.AutoMirroredRounded.Help,
-                        onClick = onLocalSourceHelpClick,
-                    ),
-                )
-            } else {
-                listOf(
-                    EmptyScreenAction(
-                        stringRes = MR.strings.action_retry,
-                        icon = MaterialSymbols.Rounded.Refresh,
-                        onClick = mangaList::refresh,
-                    ),
-                    EmptyScreenAction(
-                        stringRes = MR.strings.action_open_in_web_view,
-                        icon = MaterialSymbols.Rounded.Public,
-                        onClick = onWebViewClick,
-                    ),
-                    EmptyScreenAction(
-                        stringRes = MR.strings.label_help,
-                        icon = MaterialSymbols.AutoMirroredRounded.Help,
-                        onClick = onHelpClick,
-                    ),
-                )
-            },
-        )
-
-        return
-    }
-
-    when (displayMode) {
-        LibraryDisplayMode.ComfortableGrid -> {
-            BrowseSourceComfortableGrid(
-                mangaList = mangaList,
-                columns = columns,
-                contentPadding = contentPadding,
-                onMangaClick = onMangaClick,
-                onMangaLongClick = onMangaLongClick,
+    PullRefresh(
+        refreshing = mangaList.loadState.refresh is LoadState.Loading,
+        enabled = mangaList.loadState.refresh !is LoadState.Loading,
+        indicatorPadding = contentPadding,
+        onRefresh = mangaList::refresh,
+    ) {
+        if (mangaList.itemCount == 0) {
+            EmptyScreen(
+                modifier = Modifier.padding(contentPadding),
+                message = when (errorState) {
+                    is LoadState.Error -> getErrorMessage(errorState)
+                    else -> stringResource(MR.strings.no_results_found)
+                },
+                actions = if (source is LocalSource) {
+                    listOf(
+                        EmptyScreenAction(
+                            stringRes = MR.strings.local_source_help_guide,
+                            icon = MaterialSymbols.AutoMirroredRounded.Help,
+                            onClick = onLocalSourceHelpClick,
+                        ),
+                    )
+                } else if (source is BaseAlignedMangaSource) {
+                    buildList {
+                        if (onLoginClick != null) {
+                            add(
+                                EmptyScreenAction(
+                                    stringRes = MR.strings.login,
+                                    icon = MaterialSymbols.Rounded.Person,
+                                    onClick = onLoginClick,
+                                ),
+                            )
+                        }
+                        if (onSettingsClick != null) {
+                            add(
+                                EmptyScreenAction(
+                                    stringRes = MR.strings.action_settings,
+                                    icon = MaterialSymbols.Rounded.Settings,
+                                    onClick = onSettingsClick,
+                                ),
+                            )
+                        }
+                        add(
+                            EmptyScreenAction(
+                                stringRes = MR.strings.action_retry,
+                                icon = MaterialSymbols.Rounded.Refresh,
+                                onClick = mangaList::refresh,
+                            ),
+                        )
+                        add(
+                            EmptyScreenAction(
+                                stringRes = MR.strings.action_open_in_web_view,
+                                icon = MaterialSymbols.Rounded.Public,
+                                onClick = onWebViewClick,
+                            ),
+                        )
+                    }
+                } else {
+                    listOf(
+                        EmptyScreenAction(
+                            stringRes = MR.strings.action_retry,
+                            icon = MaterialSymbols.Rounded.Refresh,
+                            onClick = mangaList::refresh,
+                        ),
+                        EmptyScreenAction(
+                            stringRes = MR.strings.action_open_in_web_view,
+                            icon = MaterialSymbols.Rounded.Public,
+                            onClick = onWebViewClick,
+                        ),
+                        EmptyScreenAction(
+                            stringRes = MR.strings.label_help,
+                            icon = MaterialSymbols.AutoMirroredRounded.Help,
+                            onClick = onHelpClick,
+                        ),
+                    )
+                },
             )
-        }
-        LibraryDisplayMode.List -> {
-            BrowseSourceList(
-                mangaList = mangaList,
-                contentPadding = contentPadding,
-                onMangaClick = onMangaClick,
-                onMangaLongClick = onMangaLongClick,
-            )
-        }
-        LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> {
-            BrowseSourceCompactGrid(
-                mangaList = mangaList,
-                columns = columns,
-                contentPadding = contentPadding,
-                onMangaClick = onMangaClick,
-                onMangaLongClick = onMangaLongClick,
-            )
+        } else {
+            when (displayMode) {
+                LibraryDisplayMode.ComfortableGrid -> {
+                    BrowseSourceComfortableGrid(
+                        mangaList = mangaList,
+                        columns = columns,
+                        contentPadding = contentPadding,
+                        onMangaClick = onMangaClick,
+                        onMangaLongClick = onMangaLongClick,
+                    )
+                }
+                LibraryDisplayMode.List -> {
+                    BrowseSourceList(
+                        mangaList = mangaList,
+                        contentPadding = contentPadding,
+                        onMangaClick = onMangaClick,
+                        onMangaLongClick = onMangaLongClick,
+                    )
+                }
+                LibraryDisplayMode.DetailedList -> {
+                    BrowseSourceDetailedList(
+                        mangaList = mangaList,
+                        contentPadding = contentPadding,
+                        onMangaClick = onMangaClick,
+                        onMangaLongClick = onMangaLongClick,
+                    )
+                }
+                LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> {
+                    BrowseSourceCompactGrid(
+                        mangaList = mangaList,
+                        columns = columns,
+                        contentPadding = contentPadding,
+                        onMangaClick = onMangaClick,
+                        onMangaLongClick = onMangaLongClick,
+                    )
+                }
+            }
         }
     }
 }

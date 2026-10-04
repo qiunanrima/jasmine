@@ -34,7 +34,7 @@ android {
     namespace = "eu.kanade.tachiyomi"
 
     defaultConfig {
-        applicationId = "app.mihon"
+        applicationId = "com.jasmine"
 
         versionCode = 30
         versionName = "0.20.4"
@@ -155,6 +155,9 @@ android {
                 "META-INF/LICENSE",
                 "META-INF/NOTICE",
                 "META-INF/README.md",
+                "native/Windows/**",
+                "native/Mac/**",
+                "native/Linux/**",
             )
         }
     }
@@ -167,7 +170,6 @@ android {
     buildFeatures {
         viewBinding = true
         buildConfig = true
-        aidl = true
     }
 
     lint {
@@ -217,6 +219,19 @@ dependencies {
     implementation(projects.presentationCore)
     implementation(projects.presentationWidget)
     implementation(projects.telemetry)
+
+    // PicACG & JMComic APIs
+    implementation("com.picaapi:picapi:1.0.0") {
+        exclude(group = "io.socket")
+    }
+    implementation("io.github.jukomu:jmcomic-api:1.1.11")
+    implementation("io.github.jukomu:jmcomic-core:1.1.11")
+    implementation("io.github.jukomu:jmcomic-android-support:1.1.11")
+
+    // CosplayTele & E-Hentai APIs
+    implementation("com.ctapi:ctapi:1.0.0")
+    implementation("com.ehapi:ehapi:1.0.0")
+    implementation("com.fourkhd:fourkhd-api:1.0.0")
 
     // Compose
     implementation(libs.androidx.activity.compose)
@@ -293,8 +308,6 @@ dependencies {
     }
     implementation(libs.image.decoder)
 
-    implementation(libs.webgpuviewer)
-
     // UI libraries
     implementation(libs.material)
     implementation(libs.flexibleAdapter)
@@ -315,9 +328,6 @@ dependencies {
 
     // Logging
     implementation(libs.logcat)
-
-    // Shizuku
-    implementation(libs.bundles.shizuku)
 
     // String similarity
     implementation(libs.stringSimilarity)
@@ -377,4 +387,8 @@ androidComponents {
         // Layout Inspector's Compose tree
         it.packaging.resources.excludes.add("META-INF/*.version")
     }
+}
+
+configurations.all {
+    exclude(group = "androidx.paging", module = "paging-common-desktop")
 }

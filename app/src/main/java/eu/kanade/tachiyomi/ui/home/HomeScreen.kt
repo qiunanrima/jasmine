@@ -39,7 +39,6 @@ import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.MoreTab
-import eu.kanade.tachiyomi.ui.updates.UpdatesTab
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -64,10 +63,9 @@ object HomeScreen : Screen() {
     private const val TabNavigatorKey = "HomeTabs"
 
     private val TABS = listOf(
-        LibraryTab,
-        UpdatesTab,
-        HistoryTab,
         BrowseTab,
+        HistoryTab,
+        LibraryTab,
         MoreTab,
     )
 
@@ -75,7 +73,7 @@ object HomeScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         TabNavigator(
-            tab = LibraryTab,
+            tab = BrowseTab,
             key = TabNavigatorKey,
         ) { tabNavigator ->
             // Provide usable navigator to content screen
@@ -127,30 +125,32 @@ object HomeScreen : Screen() {
                 }
             }
 
-            val goToLibraryTab = { tabNavigator.current = LibraryTab }
+            val goToStartTab = { tabNavigator.current = BrowseTab }
 
-            BackHandler(enabled = tabNavigator.current != LibraryTab, onBack = goToLibraryTab)
+            BackHandler(enabled = tabNavigator.current != BrowseTab, onBack = goToStartTab)
 
             LaunchedEffect(Unit) {
                 launch {
                     librarySearchEvent.receiveAsFlow().collectLatest {
-                        goToLibraryTab()
+                        tabNavigator.current = LibraryTab
+                        LibraryTab.switchToPage(LibraryTab.PAGE_LIBRARY)
                         LibraryTab.search(it)
                     }
                 }
                 launch {
                     openTabEvent.receiveAsFlow().collectLatest {
-                        tabNavigator.current = when (it) {
-                            is Tab.Library -> LibraryTab
-                            Tab.Updates -> UpdatesTab
-                            Tab.History -> HistoryTab
-                            is Tab.Browse -> {
-                                if (it.toExtensions) {
-                                    BrowseTab.showExtension()
-                                }
-                                BrowseTab
+                        when (it) {
+                            is Tab.Library -> {
+                                tabNavigator.current = LibraryTab
+                                LibraryTab.switchToPage(LibraryTab.PAGE_LIBRARY)
                             }
-                            is Tab.More -> MoreTab
+                            Tab.Updates -> {
+                                tabNavigator.current = LibraryTab
+                                LibraryTab.switchToPage(LibraryTab.PAGE_UPDATES)
+                            }
+                            Tab.History -> tabNavigator.current = HistoryTab
+                            is Tab.Browse -> tabNavigator.current = BrowseTab
+                            is Tab.More -> tabNavigator.current = MoreTab
                         }
 
                         if (it is Tab.Library && it.mangaIdToOpen != null) {
@@ -208,18 +208,13 @@ object HomeScreen : Screen() {
         val count by produceState(initialValue = 0, tab) {
             val graph = context.appGraph
             when (tab) {
-                is UpdatesTab -> {
+                is LibraryTab -> {
                     combine(
                         graph.libraryPreferences.newShowUpdatesCount.changes(),
                         graph.libraryPreferences.newUpdatesCount.changes(),
                     ) { show, count ->
                         if (show) count else 0
                     }
-                        .collectLatest { value = it }
-                }
-
-                is BrowseTab -> {
-                    graph.sourcePreferences.extensionUpdatesCount.changes()
                         .collectLatest { value = it }
                 }
 
@@ -230,14 +225,8 @@ object HomeScreen : Screen() {
         return {
             Badge {
                 val desc = when (tab) {
-                    is UpdatesTab -> pluralStringResource(
+                    is LibraryTab -> pluralStringResource(
                         MR.plurals.notification_chapters_generic,
-                        count = count,
-                        count,
-                    )
-
-                    is BrowseTab -> pluralStringResource(
-                        MR.plurals.update_check_notification_ext_updates,
                         count = count,
                         count,
                     )

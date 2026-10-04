@@ -1,21 +1,30 @@
 package eu.kanade.presentation.history.components
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
@@ -23,16 +32,16 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.util.lang.toTimestampString
+import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.Favorite
+import mihon.icons.materialsymbols.roundedfilled.PlayArrow
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
-
-private val HistoryItemHeight = 96.dp
 
 @Composable
 fun HistoryItem(
@@ -42,35 +51,56 @@ fun HistoryItem(
     onClickDelete: () -> Unit,
     onClickFavorite: () -> Unit,
     modifier: Modifier = Modifier,
+    sourceName: String? = null,
 ) {
-    Row(
+    val context = LocalContext.current
+    val resolvedSourceName by produceState(initialValue = sourceName, sourceName, history.coverData.sourceId) {
+        if (sourceName != null) {
+            value = sourceName
+        } else {
+            value = runCatching {
+                context.appGraph.sourceManager.getOrStub(history.coverData.sourceId).getNameForMangaInfo()
+            }.getOrNull()
+        }
+    }
+
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
         modifier = modifier
-            .clickable(onClick = onClickResume)
-            .height(HistoryItemHeight)
-            .padding(horizontal = MaterialTheme.padding.medium, vertical = MaterialTheme.padding.small),
-        verticalAlignment = Alignment.CenterVertically,
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        onClick = onClickCover,
     ) {
-        MangaCover.Book(
-            modifier = Modifier.fillMaxHeight(),
-            data = history.coverData,
-            onClick = onClickCover,
-        )
-        Column(
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .padding(start = MaterialTheme.padding.medium, end = MaterialTheme.padding.small),
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            val textStyle = MaterialTheme.typography.bodyMedium
-            Text(
-                text = history.title,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                style = textStyle,
+            MangaCover.Book(
+                modifier = Modifier.width(72.dp),
+                shape = MaterialTheme.shapes.small,
+                data = history.coverData,
+                onClick = onClickCover,
             )
-            val readAt = remember { history.readAt?.toTimestampString() ?: "" }
-            Text(
-                text = if (history.chapterNumber > -1) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .align(Alignment.CenterVertically),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = history.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val readAt = remember { history.readAt?.toTimestampString() ?: "" }
+                val timeText = if (history.chapterNumber > -1) {
                     stringResource(
                         MR.strings.recent_manga_time,
                         formatChapterNumber(history.chapterNumber),
@@ -78,28 +108,79 @@ fun HistoryItem(
                     )
                 } else {
                     readAt
-                },
-                modifier = Modifier.padding(top = 4.dp),
-                style = textStyle,
-            )
-        }
-
-        if (!history.coverData.isMangaFavorite) {
-            IconButton(onClick = onClickFavorite) {
-                Icon(
-                    imageVector = MaterialSymbols.Rounded.Favorite,
-                    contentDescription = stringResource(MR.strings.add_to_library),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
+                }
+                if (timeText.isNotEmpty()) {
+                    Text(
+                        text = timeText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                val source = resolvedSourceName
+                if (!source.isNullOrBlank()) {
+                    Text(
+                        text = source,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-        }
 
-        IconButton(onClick = onClickDelete) {
-            Icon(
-                imageVector = MaterialSymbols.Rounded.Delete,
-                contentDescription = stringResource(MR.strings.action_delete),
-                tint = MaterialTheme.colorScheme.onSurface,
-            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterVertically)
+                    .heightIn(min = 108.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (!history.coverData.isMangaFavorite) {
+                        IconButton(
+                            onClick = onClickFavorite,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                imageVector = MaterialSymbols.Rounded.Favorite,
+                                contentDescription = stringResource(MR.strings.add_to_library),
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onClickDelete,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = MaterialSymbols.Rounded.Delete,
+                            contentDescription = stringResource(MR.strings.action_delete),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+
+                FilledIconButton(
+                    onClick = onClickResume,
+                    shape = MaterialTheme.shapes.small,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                        contentColor = contentColorFor(MaterialTheme.colorScheme.primaryContainer),
+                    ),
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        imageVector = MaterialSymbols.RoundedFilled.PlayArrow,
+                        contentDescription = stringResource(MR.strings.action_resume),
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
         }
     }
 }

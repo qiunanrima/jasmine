@@ -37,12 +37,14 @@ import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.util.isTabletUi
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.home.HomeScreen
+import eu.kanade.tachiyomi.ui.manga.comment.MangaCommentScreen
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
 import eu.kanade.tachiyomi.ui.manga.track.TrackInfoDialogHomeScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -138,6 +140,9 @@ class MangaScreen(
                     viewModel.showTrackDialog()
                 }
             },
+            onCommentsClicked = {
+                navigator.push(MangaCommentScreen(successState.manga.id, successState.manga.title))
+            }.takeIf { (successState.source as? BaseAlignedMangaSource)?.supportsComments == true },
             onTagSearch = { scope.launch { performGenreSearch(navigator, it, viewModel.source!!) } },
             onFilterButtonClicked = viewModel::showSettingsDialog,
             onRefresh = viewModel::fetchAllFromSource,

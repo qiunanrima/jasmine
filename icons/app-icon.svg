@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254">
+  <title>White-haired chibi portrait with a floral hair ornament</title>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#cbd0b8"/><stop offset=".52" stop-color="#c8ceb4"/><stop offset="1" stop-color="#cdd1ba"/>
+    </linearGradient>
+    <radialGradient id="skin" cx=".43" cy=".43" r=".72">
+      <stop stop-color="#fff7ef"/><stop offset=".73" stop-color="#fff3eb"/><stop offset="1" stop-color="#f9e5dd"/>
+    </radialGradient>
+    <linearGradient id="hair" x1=".2" y1="0" x2=".8" y2="1">
+      <stop stop-color="#f6f4f5"/><stop offset=".6" stop-color="#f4f2f4"/><stop offset="1" stop-color="#eeedf1"/>
+    </linearGradient>
+    <linearGradient id="shadow" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#e3e0e6"/><stop offset="1" stop-color="#d4d1da"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#b7bba0"/><stop offset="1" stop-color="#a9ae90"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#c9cbae"/><stop offset="1" stop-color="#b9bea0"/>
+    </linearGradient>
+    <linearGradient id="petal" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fffdf7"/><stop offset="1" stop-color="#f8f5f0"/>
+    </linearGradient>
+    <linearGradient id="neck" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f7d9d0"/><stop offset="1" stop-color="#fae8df"/>
+    </linearGradient>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".72" numOctaves="3" stitchTiles="stitch" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope=".025"/></feComponentTransfer>
+      <feBlend in="SourceGraphic" mode="soft-light"/>
+    </filter>
+  </defs>
+  <g filter="url(#grain)">
+    <path fill="url(#background)" d="M0 0H1254V1254H0Z"/>
+
+    <!-- Back hair and the small visible neckline. -->
+    <path fill="url(#shadow)" d="M0 367C106 258 270 181 425 181C635 180 804 322 860 494C900 653 858 798 904 982C938 1104 1000 1194 1060 1254H0Z"/>
+    <path fill="url(#hair)" d="M832 418C881 490 886 592 884 688C878 905 930 1109 1080 1254H909C859 1085 830 871 832 418Z"/>
+    <path fill="#e0dde5" d="M886 701C883 942 927 1124 1013 1254H963C915 1111 884 933 886 701Z"/>
+    <path fill="#f8f5f2" d="M198 1148C243 1137 313 1157 382 1186L404 1254H166Z"/>
+    <path fill="url(#neck)" d="M243 1095L383 1141L374 1193C342 1201 325 1215 305 1235C289 1200 262 1170 229 1158Z"/>
+    <path fill="url(#ribbon)" d="M231 1141C266 1160 292 1195 307 1228L296 1241C282 1206 256 1174 227 1158Z"/>
+    <path fill="url(#ribbon)" d="M374 1182L373 1199C338 1211 319 1229 302 1254H282C308 1216 335 1194 374 1182Z"/>
+    <path fill="url(#shadow)" d="M377 1143L663 1075C632 1146 602 1206 579 1254H369Z"/>
+    <path fill="url(#hair)" d="M742 881C729 1038 684 1168 643 1254H528C599 1169 659 1035 681 928Z"/>
+    <path fill="#dfdce4" d="M788 783C780 973 714 1158 689 1254H625C686 1113 739 951 746 838Z"/>
+    <path fill="url(#hair)" d="M845 689C855 921 834 1140 798 1254H689C754 1106 805 906 813 760Z"/>
+    <path fill="#dedbe3" d="M830 859C837 1015 823 1151 798 1254H750C790 1121 812 999 830 859Z"/>
+
+    <!-- Face, including the warm shadows under the fringe. -->
+    <path fill="url(#skin)" d="M368 473C482 438 663 493 723 649C752 746 741 936 704 1014C674 1080 613 1133 543 1158C467 1186 384 1173 310 1147C197 1107 114 1025 88 929C62 832 106 675 175 586C235 525 304 492 368 473Z"/>
+    <path fill="#f9ddd3" d="M170 622C161 667 157 720 183 767C190 678 248 610 341 534C321 620 325 691 358 780C322 670 333 579 366 489L331 506L201 593Z"/>
+    <path fill="#f9ded4" d="M375 668C370 749 400 814 449 841C399 791 391 722 391 677Z"/>
+    <path fill="#f9ddd3" d="M566 641C556 746 541 803 511 861C576 813 630 739 660 675C679 748 682 801 687 836C714 751 701 655 677 592Z"/>
+    <path fill="#f9dfd5" d="M717 842C719 899 712 967 704 1014C727 966 737 901 737 856Z"/>
+
+    <!-- Main crown and individually shaped locks. -->
+    <path fill="url(#hair)" d="M0 368C107 258 269 181 425 181C591 181 750 276 825 405C856 459 872 516 866 579C846 635 827 696 810 767C807 621 801 534 780 482C760 404 724 346 679 311C718 356 754 411 778 481C800 564 805 653 796 730C783 810 735 890 646 929C680 852 699 791 703 716C704 649 690 574 680 514C681 651 637 747 575 811C553 835 532 851 511 861C550 791 586 665 604 529C575 647 540 744 470 851C460 797 480 696 496 647C469 706 445 792 454 836C423 815 404 785 391 741C370 668 399 577 420 523C382 595 350 702 360 786C332 726 327 661 332 600C339 523 382 436 412 390C382 430 324 481 276 542C230 600 190 678 183 767C154 719 161 670 170 622C118 699 97 758 89 813C79 903 100 992 119 1078C131 1142 146 1202 154 1254H83C46 1150 26 1031 26 935C25 826 46 728 80 648C42 704 15 761 0 813Z"/>
+    <path fill="url(#shadow)" d="M0 433C41 393 87 359 123 341C74 393 35 455 0 520Z"/>
+    <path fill="#fdfbfc" opacity=".8" d="M42 540C30 541 51 470 92 412C151 331 233 271 302 260C330 255 321 271 299 296C269 332 228 373 198 422C145 459 92 493 42 540Z"/>
+    <path fill="url(#shadow)" d="M326 322C390 261 452 218 511 220C546 220 567 236 577 256C501 235 411 264 326 322Z"/>
+    <path fill="url(#shadow)" d="M312 335C238 420 189 502 170 622C118 699 97 758 89 813C104 643 180 467 312 335Z"/>
+    <path fill="#dfdce3" d="M412 390C382 436 345 493 321 533C264 590 217 649 199 697C242 578 327 471 412 390Z"/>
+    <path fill="#dfdce4" d="M420 523C395 592 380 639 377 688C362 729 358 758 360 786C347 704 382 594 420 523Z"/>
+    <path fill="#fdfbfc" opacity=".83" d="M451 541C457 492 489 436 534 384C547 369 552 374 548 398C539 455 500 515 459 541C455 544 451 544 451 541Z"/>
+    <path fill="#dedbe3" d="M610 306C639 353 635 410 611 499C620 430 614 364 610 306Z"/>
+    <path fill="#dfdce4" d="M496 647C479 710 463 797 470 851L454 836C443 789 470 703 496 647Z"/>
+    <path fill="#dfdce4" d="M604 529C588 651 565 734 547 783C554 721 560 682 562 658C581 610 592 567 604 529Z"/>
+    <path fill="#dfdce4" d="M680 514C694 576 706 649 703 716C701 758 695 799 687 825C688 751 672 681 667 629C677 586 680 552 680 514Z"/>
+    <path fill="#dfdce4" d="M679 311C739 345 770 408 782 478C805 538 819 641 810 767C806 641 796 561 778 481C754 411 718 356 679 311Z"/>
+    <path fill="url(#hair)" d="M778 718C776 838 750 936 704 1014C688 1047 669 1073 646 1096C735 1064 793 992 816 914C840 833 850 760 847 679L820 666C813 703 800 735 789 760Z"/>
+    <path fill="#dedbe3" d="M778 718C776 838 750 936 704 1014C719 956 721 891 733 847C753 810 768 765 778 718Z"/>
+    <path fill="url(#hair)" d="M80 648C42 748 24 837 28 934C31 1046 51 1156 83 1254H154C116 1147 99 1046 88 927C81 835 99 732 122 683L104 612Z"/>
+    <path fill="#d8d5df" d="M88 927C106 984 141 1035 188 1074C176 1132 162 1194 154 1254C126 1168 100 1056 88 927Z"/>
+    <path fill="url(#hair)" d="M188 1074C205 1089 223 1102 240 1112L215 1254H154Z"/>
+
+    <!-- Eyes and cheek color. -->
+    <g fill="#0e100f" stroke="#0b0d0c" stroke-width="2">
+      <path d="M269 709C287 715 296 733 289 752L254 851C248 869 229 879 211 872C194 866 187 848 193 829L226 732C232 713 250 702 269 709Z"/>
+      <path d="M607 847C625 853 635 871 628 890L593 987C587 1005 568 1015 550 1006C533 998 526 983 533 963L567 870C574 851 590 841 607 847Z"/>
+    </g>
+    <g fill="#fbded7" opacity=".69">
+      <ellipse cx="155.5" cy="895" rx="51" ry="28" transform="rotate(18 155.5 895)"/>
+      <ellipse cx="586.5" cy="1058.5" rx="50" ry="28.5" transform="rotate(22 586.5 1058.5)"/>
+    </g>
+
+    <!-- Leaves and hanging ties sit behind the flower. -->
+    <g fill="url(#leaf)">
+      <path d="M868 539C862 511 863 482 871 457C898 481 913 507 918 538L900 574Z"/>
+      <path d="M826 604C801 582 793 552 795 522C829 523 858 542 874 567L858 619Z"/>
+      <path d="M864 639C829 629 799 644 786 676C808 688 833 697 861 690L885 660Z"/>
+      <path d="M867 652C829 652 807 675 798 706C828 710 852 703 873 682Z"/>
+      <path d="M967 658C1005 651 1028 671 1041 702C1018 720 994 731 966 720L945 682Z"/>
+      <path d="M916 705C901 749 872 780 838 791C835 759 850 729 876 707Z"/>
+      <path d="M952 714C994 730 1020 771 988 811C962 791 946 761 940 730Z"/>
+    </g>
+    <path fill="url(#ribbon)" d="M914 698C914 745 899 797 884 851L899 861C917 802 927 749 927 705Z"/>
+    <path fill="url(#leaf)" d="M892 828L917 828C914 900 914 977 925 1060L896 1056C894 1016 887 982 881 946Z"/>
+    <path fill="#b9bea2" d="M885 914L915 921L914 1019C894 1021 877 1014 864 1006C865 975 873 941 885 914Z"/>
+    <path fill="url(#ribbon)" d="M900 824C917 821 927 832 928 853C930 880 925 910 923 937C900 939 879 935 860 927C865 897 873 867 883 840C887 830 892 825 900 824Z"/>
+    <path fill="url(#leaf)" d="M930 704C938 746 945 788 948 834L962 837C961 790 951 749 943 713Z"/>
+    <path fill="url(#ribbon)" d="M955 817C967 814 973 821 976 839L994 918C977 930 958 936 940 937C936 907 935 876 936 852C937 831 943 820 955 817Z"/>
+
+    <!-- Five rounded petals and the olive-colored flower center. -->
+    <g fill="url(#petal)">
+      <path d="M920 633C887 617 861 592 854 566C849 552 852 539 859 529C877 529 893 537 905 551C918 531 937 522 957 525C973 548 974 572 962 594C952 613 937 624 920 633Z"/>
+      <path d="M935 632C956 592 986 575 1026 605C1022 636 1005 661 980 666C959 670 944 655 935 632Z"/>
+      <path d="M927 650C961 650 984 671 984 700C984 715 978 732 969 747C944 745 922 731 918 709C914 687 917 667 927 650Z"/>
+      <path d="M909 651C930 681 914 709 893 723C878 734 859 735 841 728C835 698 844 672 865 658C879 650 895 648 909 651Z"/>
+      <path d="M900 627C883 592 850 573 808 604C811 631 828 652 852 656C872 660 889 645 900 627Z"/>
+    </g>
+    <path fill="#e9e6d9" d="M885 651C883 663 888 674 901 679L916 658L937 679C944 662 947 651 938 640L909 625Z"/>
+    <g fill="#b5b897">
+      <path d="M908 627C902 612 908 595 919 592C932 588 942 604 940 617C939 626 934 633 926 640Z"/>
+      <path d="M908 631C899 616 888 615 881 623C871 634 884 650 897 652L915 642Z"/>
+      <path d="M927 633C941 621 954 626 960 637C967 651 956 664 944 664C934 663 928 652 922 645Z"/>
+      <path d="M909 643C897 647 895 661 899 674C903 687 917 685 925 676C932 666 929 652 922 644Z"/>
+    </g>
+    <path fill="#b3b693" d="M907 628C899 614 889 609 882 616C877 621 881 627 886 632Z"/>
+    <path fill="#eeedde" d="M915 629C922 626 930 632 931 639C932 645 927 650 920 652C913 649 908 644 909 638C909 634 912 631 915 629Z"/>
+  </g>
+</svg>

@@ -94,8 +94,10 @@
 # KotlinX Datetime
 -keep,allowoptimization class kotlinx.datetime.** { public protected *; }
 
-# Methods called by Shizuku only
--keepclassmembers class mihon.app.shizuku.ShellInterface {
-    public <init>();
-    public void destroy();
-}
+# PicACG and JMComic use reflection for their request/response models and
+# runtime configuration. Keep the public API and model types in minified
+# release builds so requests do not fail only in release variants.
+-keep,allowoptimization class com.picaapi.** { *; }
+-keep,allowoptimization class com.picacomic.** { *; }
+-keep,allowoptimization class io.github.jukomu.jmcomic.** { *; }
+-keep,allowoptimization class com.fourkhd.** { *; }

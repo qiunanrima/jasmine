@@ -13,6 +13,7 @@ import eu.kanade.core.util.insertSeparators
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.presentation.history.HistoryUiModel
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -101,8 +102,13 @@ class HistoryViewModel(
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State())
 
-    private fun List<HistoryWithRelations>.toHistoryUiModels(): List<HistoryUiModel> {
-        return map { HistoryUiModel.Item(it) }
+    private suspend fun List<HistoryWithRelations>.toHistoryUiModels(): List<HistoryUiModel> {
+        return map {
+            val sourceName = runCatching {
+                sourceManager.getOrStub(it.coverData.sourceId).getNameForMangaInfo()
+            }.getOrNull()
+            HistoryUiModel.Item(it, sourceName)
+        }
             .insertSeparators { before, after ->
                 val beforeDate = before?.item?.readAt?.time?.toLocalDate()
                 val afterDate = after?.item?.readAt?.time?.toLocalDate()

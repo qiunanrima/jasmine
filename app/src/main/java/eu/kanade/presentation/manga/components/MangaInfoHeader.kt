@@ -86,6 +86,7 @@ import mihon.icons.materialsymbols.rounded.Brush
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Done
 import mihon.icons.materialsymbols.rounded.DoneAll
+import mihon.icons.materialsymbols.rounded.EditNote
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.HourglassEmpty
 import mihon.icons.materialsymbols.rounded.Pause
@@ -184,6 +185,7 @@ fun MangaActionRow(
     onTrackingClicked: () -> Unit,
     onEditIntervalClicked: (() -> Unit)?,
     onEditCategory: (() -> Unit)?,
+    onCommentsClicked: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val defaultActionButtonColor = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
@@ -234,6 +236,14 @@ fun MangaActionRow(
             color = if (trackingCount == 0) defaultActionButtonColor else MaterialTheme.colorScheme.primary,
             onClick = onTrackingClicked,
         )
+        if (onCommentsClicked != null) {
+            MangaActionButton(
+                title = "评论",
+                icon = MaterialSymbols.Rounded.EditNote,
+                color = defaultActionButtonColor,
+                onClick = onCommentsClicked,
+            )
+        }
         if (onWebViewClicked != null) {
             MangaActionButton(
                 title = stringResource(MR.strings.action_web_view),
@@ -248,7 +258,8 @@ fun MangaActionRow(
 
 @Composable
 fun ExpandableMangaDescription(
-    defaultExpandState: Boolean,
+    defaultExpandDescription: Boolean = false,
+    defaultExpandTags: Boolean = false,
     description: String?,
     tagsProvider: () -> List<String>?,
     notes: String,
@@ -258,21 +269,24 @@ fun ExpandableMangaDescription(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
-        val (expanded, onExpanded) = rememberSaveable {
-            mutableStateOf(defaultExpandState)
+        val (expandedDescription, onExpandedDescription) = rememberSaveable {
+            mutableStateOf(defaultExpandDescription)
+        }
+        val (expandedTags, onExpandedTags) = rememberSaveable {
+            mutableStateOf(defaultExpandTags)
         }
         val desc =
             description.takeIf { !it.isNullOrBlank() } ?: stringResource(MR.strings.description_placeholder)
 
         MangaSummary(
             description = desc,
-            expanded = expanded,
+            expanded = expandedDescription,
             notes = notes,
             onEditNotesClicked = onEditNotes,
             modifier = Modifier
                 .padding(top = 8.dp)
                 .padding(horizontal = 16.dp)
-                .clickableNoIndication { onExpanded(!expanded) },
+                .clickableNoIndication { onExpandedDescription(!expandedDescription) },
         )
         val tags = tagsProvider()
         if (!tags.isNullOrEmpty()) {
@@ -281,7 +295,8 @@ fun ExpandableMangaDescription(
                     .padding(top = 8.dp)
                     .padding(vertical = 12.dp)
                     .animateContentSize(animationSpec = spring())
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .clickableNoIndication { onExpandedTags(!expandedTags) },
             ) {
                 var showMenu by remember { mutableStateOf(false) }
                 var tagSelected by remember { mutableStateOf("") }
@@ -304,7 +319,7 @@ fun ExpandableMangaDescription(
                         },
                     )
                 }
-                if (expanded) {
+                if (expandedTags) {
                     FlowRow(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),

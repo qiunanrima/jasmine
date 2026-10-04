@@ -20,8 +20,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -33,14 +35,21 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.browse.BrowseSourceContent
 import eu.kanade.presentation.browse.MissingSourceScreen
+import eu.kanade.presentation.browse.components.AlignedSourceLoginDialog
 import eu.kanade.presentation.browse.components.BrowseSourceToolbar
 import eu.kanade.presentation.browse.components.RemoveMangaDialog
+import eu.kanade.presentation.browse.components.SourceCategoriesDialog
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.manga.DuplicateMangaDialog
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.Screen
+import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
+import eu.kanade.tachiyomi.source.builtin.ehentai.EhentaiSource
+import eu.kanade.tachiyomi.source.builtin.picacg.PicacgSource
 import eu.kanade.tachiyomi.source.online.HttpSource
-import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
+import eu.kanade.tachiyomi.ui.browse.source.favorites.BaseRemoteFavoritesScreen
+import eu.kanade.tachiyomi.ui.browse.source.favorites.PicacgFavoritesScreen
+import eu.kanade.tachiyomi.ui.browse.source.preferences.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
@@ -50,6 +59,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import mihon.feature.migration.dialog.MigrateMangaDialog
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.Label
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.NewReleases
 import mihon.icons.materialsymbols.roundedfilled.Favorite
@@ -107,6 +117,17 @@ data class BrowseSourceScreen(
         val haptic = LocalHapticFeedback.current
         val uriHandler = LocalUriHandler.current
         val snackbarHostState = remember { SnackbarHostState() }
+        val mangaList = viewModel.mangaPagerFlowFlow.collectAsLazyPagingItems()
+        if (source is EhentaiSource) {
+            val authenticationVersion by source.authenticationChanges.collectAsState()
+            LaunchedEffect(source, authenticationVersion) {
+                if (authenticationVersion > 0) mangaList.refresh()
+            }
+        }
+
+        var showLoginDialog by remember(source) {
+            mutableStateOf(source is BaseAlignedMangaSource && source.requiresLogin && !source.isUserLoggedIn)
+        }
 
         val onHelpClick = { uriHandler.openUri(LocalSource.HELP_URL) }
         val onWebViewClick = f@{
@@ -142,6 +163,16 @@ data class BrowseSourceScreen(
                         onHelpClick = onHelpClick,
                         onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
                         onSearch = viewModel::search,
+                        onLoginClick = { showLoginDialog = true },
+                        onFavoritesClick = {
+                            if (source is BaseAlignedMangaSource && !source.isUserLoggedIn && source.requiresLogin) {
+                                showLoginDialog = true
+                            } else if (source is PicacgSource) {
+                                navigator.push(PicacgFavoritesScreen(sourceId))
+                            } else {
+                                navigator.push(BaseRemoteFavoritesScreen(sourceId))
+                            }
+                        },
                     )
 
                     Row(
@@ -188,6 +219,22 @@ data class BrowseSourceScreen(
                                 },
                             )
                         }
+                        if (source is BaseAlignedMangaSource && source.supportsCategories) {
+                            FilterChip(
+                                selected = state.selectedSourceCategory != null,
+                                onClick = viewModel::openCategories,
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = MaterialSymbols.AutoMirroredRounded.Label,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize),
+                                    )
+                                },
+                                label = {
+                                    Text(state.selectedSourceCategory ?: stringResource(MR.strings.categories))
+                                },
+                            )
+                        }
                         if (state.filters.isNotEmpty()) {
                             FilterChip(
                                 selected = state.listing is Listing.Search,
@@ -214,7 +261,7 @@ data class BrowseSourceScreen(
         ) { paddingValues ->
             BrowseSourceContent(
                 source = source,
-                mangaList = viewModel.mangaPagerFlowFlow.collectAsLazyPagingItems(),
+                mangaList = mangaList,
                 columns = viewModel.getColumnsPreference(LocalConfiguration.current.orientation),
                 displayMode = viewModel.displayMode,
                 snackbarHostState = snackbarHostState,
@@ -236,11 +283,24 @@ data class BrowseSourceScreen(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
                 },
+                onLoginClick = { showLoginDialog = true },
+                onSettingsClick = { navigator.push(SourcePreferencesScreen(sourceId)) },
             )
         }
 
         val onDismissRequest = { viewModel.setDialog(null) }
         when (val dialog = state.dialog) {
+            is BrowseSourceViewModel.Dialog.SourceCategories -> {
+                SourceCategoriesDialog(
+                    categories = state.sourceCategories,
+                    selectedCategory = state.selectedSourceCategory,
+                    loading = state.categoriesLoading,
+                    error = state.categoriesError,
+                    onSelect = viewModel::selectCategory,
+                    onRetry = viewModel::openCategories,
+                    onDismissRequest = onDismissRequest,
+                )
+            }
             is BrowseSourceViewModel.Dialog.Filter -> {
                 SourceFilterDialog(
                     onDismissRequest = onDismissRequest,
@@ -290,6 +350,17 @@ data class BrowseSourceScreen(
                 )
             }
             else -> {}
+        }
+
+        if (showLoginDialog && source is BaseAlignedMangaSource) {
+            AlignedSourceLoginDialog(
+                source = source,
+                onDismissRequest = { showLoginDialog = false },
+                onLoginSuccess = {
+                    showLoginDialog = false
+                    mangaList.refresh()
+                },
+            )
         }
 
         LaunchedEffect(Unit) {

@@ -15,9 +15,13 @@ import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.automirroredrounded.FormatListBulleted
 import mihon.icons.materialsymbols.automirroredrounded.ViewList
+import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.rounded.ViewModule
+import mihon.icons.materialsymbols.roundedfilled.Favorite
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -35,6 +39,8 @@ fun BrowseSourceToolbar(
     onHelpClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onSearch: (String) -> Unit,
+    onLoginClick: (() -> Unit)? = null,
+    onFavoritesClick: (() -> Unit)? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
     // Avoid capturing unstable source in actions lambda
@@ -54,13 +60,31 @@ fun BrowseSourceToolbar(
         actions = {
             AppBarActions(
                 actions = buildList {
+                    if (source is BaseAlignedMangaSource && onLoginClick != null) {
+                        add(
+                            AppBar.Action(
+                                title = if (source.isUserLoggedIn) "账号: ${source.savedAccount ?: ""}" else stringResource(MR.strings.login),
+                                icon = MaterialSymbols.Rounded.Person,
+                                onClick = onLoginClick,
+                            ),
+                        )
+                    }
+                    if (source is BaseAlignedMangaSource && source.supportsFavorites && onFavoritesClick != null) {
+                        add(
+                            AppBar.Action(
+                                title = "我的收藏",
+                                icon = MaterialSymbols.RoundedFilled.Favorite,
+                                onClick = onFavoritesClick,
+                            ),
+                        )
+                    }
                     add(
                         AppBar.Action(
                             title = stringResource(MR.strings.action_display_mode),
-                            icon = if (displayMode == LibraryDisplayMode.List) {
-                                MaterialSymbols.AutoMirroredRounded.ViewList
-                            } else {
-                                MaterialSymbols.Rounded.ViewModule
+                            icon = when (displayMode) {
+                                LibraryDisplayMode.List -> MaterialSymbols.AutoMirroredRounded.ViewList
+                                LibraryDisplayMode.DetailedList -> MaterialSymbols.AutoMirroredRounded.FormatListBulleted
+                                else -> MaterialSymbols.Rounded.ViewModule
                             },
                             onClick = { selectingDisplayMode = true },
                         ),
@@ -115,6 +139,13 @@ fun BrowseSourceToolbar(
                 ) {
                     selectingDisplayMode = false
                     onDisplayModeChange(LibraryDisplayMode.List)
+                }
+                RadioMenuItem(
+                    text = { Text(text = "卡片列表") },
+                    isChecked = displayMode == LibraryDisplayMode.DetailedList,
+                ) {
+                    selectingDisplayMode = false
+                    onDisplayModeChange(LibraryDisplayMode.DetailedList)
                 }
             }
         },

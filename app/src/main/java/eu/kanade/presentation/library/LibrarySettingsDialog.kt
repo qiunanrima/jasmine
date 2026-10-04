@@ -237,9 +237,14 @@ private fun ColumnScope.DisplayPage(
                 label = { Text(stringResource(titleRes)) },
             )
         }
+        FilterChip(
+            selected = displayMode == LibraryDisplayMode.DetailedList,
+            onClick = { viewModel.setDisplayMode(LibraryDisplayMode.DetailedList) },
+            label = { Text("卡片列表") },
+        )
     }
 
-    if (displayMode != LibraryDisplayMode.List) {
+    if (displayMode != LibraryDisplayMode.List && displayMode != LibraryDisplayMode.DetailedList) {
         val configuration = LocalConfiguration.current
         val columnPreference = remember {
             if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {

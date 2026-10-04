@@ -7,7 +7,6 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metrox.viewmodel.MetroViewModelFactory
 import dev.zacsweers.metrox.viewmodel.ViewModelGraph
 import eu.kanade.domain.base.BasePreferences
-import eu.kanade.domain.extension.interactor.TrustExtension
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.domain.track.service.DelayedTrackingUpdateJob
@@ -28,8 +27,6 @@ import eu.kanade.tachiyomi.data.library.MetadataUpdateJob
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
-import eu.kanade.tachiyomi.extension.ExtensionManager
-import eu.kanade.tachiyomi.extension.util.ExtensionInstallActivity
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
@@ -43,7 +40,6 @@ import eu.kanade.tachiyomi.util.CrashLogUtil
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
-import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
 import nl.adaptivity.xmlutil.serialization.XML
 import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.category.interactor.GetCategories
@@ -74,7 +70,6 @@ interface AppGraph : ViewModelGraph {
     fun inject(downloadJob: DownloadJob)
     fun inject(notificationReceiver: NotificationReceiver)
     fun inject(notificationReceiver: SecureActivityDelegateImpl)
-    fun inject(extensionInstallActivity: ExtensionInstallActivity)
 
     val context: Context
 
@@ -99,11 +94,8 @@ interface AppGraph : ViewModelGraph {
 
     val updateChecker: AppUpdateChecker
 
-    val trustExtension: TrustExtension
-
     val sourceManager: SourceManager
     val trackerManager: TrackerManager
-    val extensionManager: ExtensionManager
     val chapterCache: ChapterCache
     val coverCache: CoverCache
     val downloadCache: DownloadCache
@@ -120,8 +112,9 @@ interface AppGraph : ViewModelGraph {
     val resetCategoryFlags: ResetCategoryFlags
     val addTracks: AddTracks
     val insertTrack: InsertTrack
-
-    val getExtensionStoreCountAsFlow: GetExtensionStoreCountAsFlow
+    val networkToLocalManga: tachiyomi.domain.manga.interactor.NetworkToLocalManga
+    val getManga: tachiyomi.domain.manga.interactor.GetManga
+    val libraryFavoritesSync: eu.kanade.tachiyomi.data.library.LibraryFavoritesSync
 
     @DependencyGraph.Factory
     fun interface Factory {

@@ -1,6 +1,7 @@
 package eu.kanade.presentation.updates
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalContentColor
@@ -61,6 +62,7 @@ fun UpdateScreen(
     onOpenChapter: (UpdatesItem) -> Unit,
     onFilterClicked: () -> Unit,
     hasActiveFilters: Boolean,
+    topBarTabs: @Composable () -> Unit = {},
 ) {
     BackHandler(enabled = state.selectionMode) {
         onSelectAll(false)
@@ -68,17 +70,22 @@ fun UpdateScreen(
 
     Scaffold(
         topBar = { scrollBehavior ->
-            UpdatesAppBar(
-                onCalendarClicked = { onCalendarClicked() },
-                onUpdateLibrary = { onUpdateLibrary() },
-                onFilterClicked = { onFilterClicked() },
-                hasFilters = hasActiveFilters,
-                actionModeCounter = state.selected.size,
-                onSelectAll = { onSelectAll(true) },
-                onInvertSelection = { onInvertSelection() },
-                onCancelActionMode = { onSelectAll(false) },
-                scrollBehavior = scrollBehavior,
-            )
+            Column {
+                UpdatesAppBar(
+                    onCalendarClicked = { onCalendarClicked() },
+                    onUpdateLibrary = { onUpdateLibrary() },
+                    onFilterClicked = { onFilterClicked() },
+                    hasFilters = hasActiveFilters,
+                    actionModeCounter = state.selected.size,
+                    onSelectAll = { onSelectAll(true) },
+                    onInvertSelection = { onInvertSelection() },
+                    onCancelActionMode = { onSelectAll(false) },
+                    scrollBehavior = scrollBehavior,
+                )
+                if (!state.selectionMode) {
+                    topBarTabs()
+                }
+            }
         },
         bottomBar = {
             UpdatesBottomBar(

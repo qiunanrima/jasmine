@@ -2,6 +2,7 @@ package eu.kanade.presentation.library.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
@@ -13,7 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -373,6 +377,108 @@ fun MangaListItem(
                 onClick = onClickContinueReading,
                 modifier = Modifier.padding(start = ContinueReadingButtonListSpacing),
             )
+        }
+    }
+}
+
+/**
+ * Layout of detailed card list item (similar to PicACG comic card list).
+ */
+@Composable
+fun MangaDetailedListItem(
+    coverData: MangaCoverModel,
+    title: String,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    author: String? = null,
+    categories: List<String> = emptyList(),
+    extraInfo: String? = null,
+    badge: (@Composable RowScope.() -> Unit)? = null,
+    isSelected: Boolean = false,
+    coverAlpha: Float = 1f,
+    onClickContinueReading: (() -> Unit)? = null,
+) {
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            },
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                MangaCover.Book(
+                    modifier = Modifier
+                        .width(72.dp)
+                        .aspectRatio(MangaCover.Book.ratio)
+                        .clip(MaterialTheme.shapes.small)
+                        .alpha(coverAlpha),
+                    data = coverData,
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .align(Alignment.Top),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (!author.isNullOrBlank()) {
+                        Text(
+                            text = author,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (badge != null) {
+                        BadgeGroup(content = badge)
+                    }
+                }
+                if (onClickContinueReading != null) {
+                    ContinueReadingButton(
+                        size = ContinueReadingButtonSizeSmall,
+                        iconSize = ContinueReadingButtonIconSizeSmall,
+                        onClick = onClickContinueReading,
+                        modifier = Modifier
+                            .align(Alignment.Bottom)
+                            .padding(start = 4.dp),
+                    )
+                }
+            }
+            if (categories.isNotEmpty()) {
+                Text(
+                    text = categories.joinToString(" / "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

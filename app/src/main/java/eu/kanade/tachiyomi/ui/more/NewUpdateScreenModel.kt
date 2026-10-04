@@ -12,8 +12,8 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
-import eu.kanade.tachiyomi.extension.util.ExtensionInstaller
 import eu.kanade.tachiyomi.network.GET
+import tachiyomi.core.common.Constants
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.ProgressListener
 import eu.kanade.tachiyomi.network.awaitSuccess
@@ -97,7 +97,7 @@ class NewUpdateScreenModel(
 
     fun installUpdate() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkFile.getUriCompat(context), ExtensionInstaller.APK_MIME)
+            setDataAndType(apkFile.getUriCompat(context), Constants.APK_MIME)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
         context.startActivity(intent)

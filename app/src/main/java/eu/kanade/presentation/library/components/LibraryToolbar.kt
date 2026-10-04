@@ -39,6 +39,8 @@ fun LibraryToolbar(
     searchQuery: String?,
     onSearchQueryChange: (String?) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior?,
+    navigateUp: (() -> Unit)? = null,
+    onClickSync: (() -> Unit)? = null,
 ) = when {
     selectedCount > 0 -> LibrarySelectionToolbar(
         selectedCount = selectedCount,
@@ -56,6 +58,8 @@ fun LibraryToolbar(
         onClickGlobalUpdate = onClickGlobalUpdate,
         onClickOpenRandomManga = onClickOpenRandomManga,
         scrollBehavior = scrollBehavior,
+        navigateUp = navigateUp,
+        onClickSync = onClickSync,
     )
 }
 
@@ -70,6 +74,8 @@ private fun LibraryRegularToolbar(
     onClickGlobalUpdate: () -> Unit,
     onClickOpenRandomManga: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior?,
+    navigateUp: (() -> Unit)? = null,
+    onClickSync: (() -> Unit)? = null,
 ) {
     val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
     SearchToolbar(
@@ -92,30 +98,38 @@ private fun LibraryRegularToolbar(
         },
         searchQuery = searchQuery,
         onChangeSearchQuery = onSearchQueryChange,
+        navigateUp = navigateUp,
         actions = {
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
-            AppBarActions(
-                listOf(
-                    AppBar.Action(
-                        title = stringResource(MR.strings.action_filter),
-                        icon = MaterialSymbols.Rounded.FilterList,
-                        iconTint = filterTint,
-                        onClick = onClickFilter,
-                    ),
-                    AppBar.OverflowAction(
-                        title = stringResource(MR.strings.action_update_library),
-                        onClick = onClickGlobalUpdate,
-                    ),
-                    AppBar.OverflowAction(
-                        title = stringResource(MR.strings.action_update_category),
-                        onClick = onClickRefresh,
-                    ),
-                    AppBar.OverflowAction(
-                        title = stringResource(MR.strings.action_open_random_manga),
-                        onClick = onClickOpenRandomManga,
-                    ),
+            val actionList = mutableListOf<AppBar.AppBarAction>(
+                AppBar.Action(
+                    title = stringResource(MR.strings.action_filter),
+                    icon = MaterialSymbols.Rounded.FilterList,
+                    iconTint = filterTint,
+                    onClick = onClickFilter,
+                ),
+                AppBar.OverflowAction(
+                    title = stringResource(MR.strings.action_update_library),
+                    onClick = onClickGlobalUpdate,
+                ),
+                AppBar.OverflowAction(
+                    title = stringResource(MR.strings.action_update_category),
+                    onClick = onClickRefresh,
+                ),
+                AppBar.OverflowAction(
+                    title = stringResource(MR.strings.action_open_random_manga),
+                    onClick = onClickOpenRandomManga,
                 ),
             )
+            if (onClickSync != null) {
+                actionList.add(
+                    AppBar.OverflowAction(
+                        title = "一键同步账号收藏",
+                        onClick = onClickSync,
+                    ),
+                )
+            }
+            AppBarActions(actionList)
         },
         scrollBehavior = scrollBehavior,
     )

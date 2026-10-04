@@ -21677,7 +21677,6 @@ HSPLeu/kanade/domain/source/interactor/GetIncognitoState;-><clinit>()V
 HSPLeu/kanade/domain/source/interactor/GetIncognitoState;-><init>(Leu/kanade/domain/base/BasePreferences;Leu/kanade/domain/source/service/SourcePreferences;Leu/kanade/tachiyomi/extension/ExtensionManager;)V
 HSPLeu/kanade/domain/source/interactor/GetIncognitoState;->await(Ljava/lang/Long;)Z
 HSPLeu/kanade/domain/source/interactor/GetIncognitoState;->subscribe(Ljava/lang/Long;)Lkotlinx/coroutines/flow/Flow;
-Leu/kanade/domain/source/interactor/GetLanguagesWithSources;
 Leu/kanade/domain/source/interactor/GetSourcesWithFavoriteCount;
 HSPLeu/kanade/domain/source/interactor/GetSourcesWithFavoriteCount;-><clinit>()V
 HSPLeu/kanade/domain/source/interactor/GetSourcesWithFavoriteCount;-><init>(Ltachiyomi/domain/source/repository/SourceRepository;Leu/kanade/domain/source/service/SourcePreferences;)V
@@ -21709,7 +21708,6 @@ HSPLeu/kanade/domain/source/interactor/SetMigrateSorting$Mode;-><clinit>()V
 HSPLeu/kanade/domain/source/interactor/SetMigrateSorting$Mode;-><init>(Ljava/lang/String;I)V
 HSPLeu/kanade/domain/source/interactor/SetMigrateSorting$Mode;->values()[Leu/kanade/domain/source/interactor/SetMigrateSorting$Mode;
 Leu/kanade/domain/source/interactor/ToggleIncognito;
-Leu/kanade/domain/source/interactor/ToggleLanguage;
 Leu/kanade/domain/source/interactor/ToggleSource;
 HSPLeu/kanade/domain/source/interactor/ToggleSource;-><clinit>()V
 HSPLeu/kanade/domain/source/interactor/ToggleSource;-><init>(Leu/kanade/domain/source/service/SourcePreferences;)V

@@ -47,7 +47,7 @@ fun BrowseSourceComfortableGrid(
             )
         }
 
-        if (mangaList.loadState.refresh is LoadState.Loading || mangaList.loadState.append is LoadState.Loading) {
+        if (mangaList.loadState.append is LoadState.Loading) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 BrowseSourceLoadingItem()
             }

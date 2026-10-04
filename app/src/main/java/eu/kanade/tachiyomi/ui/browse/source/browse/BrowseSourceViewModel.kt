@@ -27,6 +27,8 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.interactor.AddTracks
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.builtin.base.AlignedSourceCategory
+import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.util.removeCovers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +42,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
 import tachiyomi.core.common.util.lang.launchIO
@@ -90,6 +94,37 @@ class BrowseSourceViewModel(
     var displayMode by sourcePreferences.sourceDisplayMode.asState(viewModelScope)
 
     private val source: Source? get() = state.value.source
+
+    private var categoriesJob: Job? = null
+
+    fun openCategories() {
+        val source = source as? BaseAlignedMangaSource ?: return
+        setDialog(Dialog.SourceCategories)
+        if (categoriesJob?.isActive == true) return
+        state.update { it.copy(categoriesLoading = true, categoriesError = null) }
+        categoriesJob = viewModelScope.launchIO {
+            try {
+                val categories = source.fetchCategories()
+                state.update { it.copy(sourceCategories = categories, categoriesLoading = false) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                state.update { it.copy(categoriesLoading = false, categoriesError = e) }
+            }
+        }
+    }
+
+    fun selectCategory(category: AlignedSourceCategory) {
+        state.update {
+            it.copy(
+                filters = category.filters,
+                listing = Listing.Search(query = null, filters = category.filters),
+                toolbarQuery = null,
+                selectedSourceCategory = category.name,
+                dialog = null,
+            )
+        }
+    }
 
     init {
         viewModelScope.launchIO {
@@ -157,7 +192,7 @@ class BrowseSourceViewModel(
     }
 
     fun setListing(listing: Listing) {
-        state.update { it.copy(listing = listing, toolbarQuery = null) }
+        state.update { it.copy(listing = listing, toolbarQuery = null, selectedSourceCategory = null) }
     }
 
     fun setFilters(filters: FilterList) {
@@ -179,6 +214,7 @@ class BrowseSourceViewModel(
                     filters = filters ?: input.filters,
                 ),
                 toolbarQuery = query ?: input.query,
+                selectedSourceCategory = null,
             )
         }
     }
@@ -222,6 +258,7 @@ class BrowseSourceViewModel(
                 filters = defaultFilters,
                 listing = listing,
                 toolbarQuery = listing.query,
+                selectedSourceCategory = null,
             )
         }
     }
@@ -349,6 +386,7 @@ class BrowseSourceViewModel(
 
     sealed interface Dialog {
         data object Filter : Dialog
+        data object SourceCategories : Dialog
         data class RemoveManga(val manga: Manga) : Dialog
         data class AddDuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
         data class ChangeMangaCategory(
@@ -365,6 +403,10 @@ class BrowseSourceViewModel(
         val filters: FilterList = FilterList(),
         val toolbarQuery: String? = null,
         val dialog: Dialog? = null,
+        val sourceCategories: List<AlignedSourceCategory> = emptyList(),
+        val categoriesLoading: Boolean = false,
+        val categoriesError: Exception? = null,
+        val selectedSourceCategory: String? = null,
     ) {
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()
     }

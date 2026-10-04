@@ -41,6 +41,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.EnhancedTracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import eu.kanade.tachiyomi.util.removeCovers
@@ -114,6 +115,7 @@ class MangaViewModel(
     private val updateChapter: UpdateChapter,
     private val updateManga: UpdateManga,
     private val getCategories: GetCategories,
+    private val createCategoryWithName: tachiyomi.domain.category.interactor.CreateCategoryWithName,
     private val getTracks: GetTracks,
     private val addTracks: AddTracks,
     private val setMangaCategories: SetMangaCategories,
@@ -345,6 +347,10 @@ class MangaViewModel(
             if (isFavorited) {
                 // Remove from library
                 if (updateManga.awaitUpdateFavorite(manga.id, false)) {
+                    val currentSource = state.source
+                    if (currentSource is BaseAlignedMangaSource && currentSource.supportsFavorites && currentSource.isUserLoggedIn) {
+                        runCatching { currentSource.removeFavoriteComic(manga.url) }
+                    }
                     // Remove covers and update last modified in db
                     if (manga.removeCovers(coverCache) != manga) {
                         updateManga.awaitUpdateCoverLastModified(manga.id)
@@ -363,27 +369,40 @@ class MangaViewModel(
                     }
                 }
 
-                // Now check if user previously set categories, when available
-                val categories = getCategories()
+                // Add to library
+                val result = updateManga.awaitUpdateFavorite(manga.id, true)
+                if (!result) return@launchIO
+
+                // 自动按 API / 图源名称分类
+                val currentSource = state.source
+                val sourceName = currentSource.name.trim().ifBlank { "本地" }
+                val allCategories = getCategories()
+                var apiCategory = allCategories.firstOrNull { it.name.equals(sourceName, ignoreCase = true) }
+                if (apiCategory == null) {
+                    createCategoryWithName.await(sourceName)
+                    apiCategory = getCategories().firstOrNull { it.name.equals(sourceName, ignoreCase = true) }
+                }
+
                 val defaultCategoryId = libraryPreferences.defaultCategory.get().toLong()
-                val defaultCategory = categories.find { it.id == defaultCategoryId }
-                when {
-                    // Default category set
-                    defaultCategory != null -> {
-                        val result = updateManga.awaitUpdateFavorite(manga.id, true)
-                        if (!result) return@launchIO
-                        moveMangaToCategory(defaultCategory)
-                    }
+                val defaultCategory = allCategories.find { it.id == defaultCategoryId }
+                val targetCategories = mutableListOf<Long>()
+                if (apiCategory != null) {
+                    targetCategories.add(apiCategory.id)
+                }
+                if (defaultCategory != null && defaultCategory.id != apiCategory?.id) {
+                    targetCategories.add(defaultCategory.id)
+                }
+                if (targetCategories.isNotEmpty()) {
+                    moveMangaToCategory(targetCategories)
+                } else {
+                    moveMangaToCategory(null)
+                }
 
-                    // Automatic 'Default' or no categories
-                    defaultCategoryId == 0L || categories.isEmpty() -> {
-                        val result = updateManga.awaitUpdateFavorite(manga.id, true)
-                        if (!result) return@launchIO
-                        moveMangaToCategory(null)
+                // 若图源支持远程收藏且已登录，调用 API 加入远程收藏夹
+                if (currentSource is BaseAlignedMangaSource && currentSource.supportsFavorites && currentSource.isUserLoggedIn) {
+                    runCatching {
+                        currentSource.addFavoriteComic(manga.url)
                     }
-
-                    // Choose a category
-                    else -> showChangeCategoryDialog()
                 }
 
                 // Finally match with enhanced tracking when available
@@ -471,6 +490,10 @@ class MangaViewModel(
 
         viewModelScope.launchIO {
             updateManga.awaitUpdateFavorite(manga.id, true)
+            val currentSource = sourceManager.get(manga.source)
+            if (currentSource is BaseAlignedMangaSource && currentSource.supportsFavorites && currentSource.isUserLoggedIn) {
+                runCatching { currentSource.addFavoriteComic(manga.url) }
+            }
         }
     }
 
@@ -633,10 +656,14 @@ class MangaViewModel(
             .map { it.chapter }
     }
 
-    private fun getUnreadChaptersSorted(): List<Chapter> {
+    private fun getDownloadableChaptersSorted(): List<Chapter> {
         val manga = successState?.manga ?: return emptyList()
-        val chaptersSorted = getUnreadChapters().sortedWith(getChapterSort(manga))
-        return if (manga.sortDescending()) chaptersSorted.reversed() else chaptersSorted
+        val chapterItems = if (skipFiltered) filteredChapters.orEmpty() else allChapters.orEmpty()
+        val chapters = chapterItems
+            .filter { (_, downloadState) -> downloadState == Download.State.NOT_DOWNLOADED }
+            .map { it.chapter }
+            .sortedWith(getChapterSort(manga))
+        return if (manga.sortDescending()) chapters.reversed() else chapters
     }
 
     private fun getBookmarkedChapters(): List<Chapter> {
@@ -703,10 +730,11 @@ class MangaViewModel(
 
     fun runDownloadAction(action: DownloadAction) {
         val chaptersToDownload = when (action) {
-            DownloadAction.NEXT_1_CHAPTER -> getUnreadChaptersSorted().take(1)
-            DownloadAction.NEXT_5_CHAPTERS -> getUnreadChaptersSorted().take(5)
-            DownloadAction.NEXT_10_CHAPTERS -> getUnreadChaptersSorted().take(10)
-            DownloadAction.NEXT_25_CHAPTERS -> getUnreadChaptersSorted().take(25)
+            DownloadAction.NEXT_1_CHAPTER -> getDownloadableChaptersSorted().take(1)
+            DownloadAction.NEXT_5_CHAPTERS -> getDownloadableChaptersSorted().take(5)
+            DownloadAction.NEXT_10_CHAPTERS -> getDownloadableChaptersSorted().take(10)
+            DownloadAction.NEXT_25_CHAPTERS -> getDownloadableChaptersSorted().take(25)
+            DownloadAction.ALL_CHAPTERS -> getDownloadableChaptersSorted()
             DownloadAction.UNREAD_CHAPTERS -> getUnreadChapters()
             DownloadAction.BOOKMARKED_CHAPTERS -> getBookmarkedChapters()
         }

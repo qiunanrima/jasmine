@@ -41,6 +41,7 @@ fun MigrateSearchScreen(
             )
         },
     ) { paddingValues ->
+        val isSearching = state.progress < state.total
         GlobalSearchContent(
             fromSourceId = fromSourceId,
             items = state.filteredItems,
@@ -49,6 +50,8 @@ fun MigrateSearchScreen(
             onClickSource = onClickSource,
             onClickItem = onClickItem,
             onLongClickItem = onLongClickItem,
+            refreshing = isSearching,
+            onRefresh = { state.searchQuery?.let { onSearch(it) } },
         )
     }
 }

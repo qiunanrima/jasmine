@@ -5,7 +5,6 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.source.interactor.SetMigrateSorting
 import eu.kanade.tachiyomi.util.system.LocaleHelper
-import mihon.domain.extension.model.ContentWarning
 import mihon.domain.migration.models.MigrationFlag
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -43,16 +42,6 @@ class SourcePreferences(
         -1,
     )
 
-    val enabledContentWarnings: Preference<Set<ContentWarning>> = preferenceStore.getEnumSet(
-        "enabled_content_warnings",
-        setOf(ContentWarning.SAFE, ContentWarning.MIXED, ContentWarning.NSFW),
-    )
-
-    val applyContentWarningsToInstalled: Preference<Boolean> = preferenceStore.getBoolean(
-        "apply_content_warnings_to_installed",
-        true,
-    )
-
     val migrationSortingMode: Preference<SetMigrateSorting.Mode> = preferenceStore.getEnum(
         "pref_migration_sorting",
         SetMigrateSorting.Mode.ALPHABETICAL,
@@ -64,15 +53,6 @@ class SourcePreferences(
     )
 
     val hideInLibraryItems: Preference<Boolean> = preferenceStore.getBoolean("browse_hide_in_library_items", false)
-
-    val extensionRepos: Preference<Set<String>> = preferenceStore.getStringSet("extension_repos", emptySet())
-
-    val extensionUpdatesCount: Preference<Int> = preferenceStore.getInt("ext_updates_count", 0)
-
-    val trustedExtensions: Preference<Set<String>> = preferenceStore.getStringSet(
-        Preference.appStateKey("trusted_extensions"),
-        emptySet(),
-    )
 
     val globalSearchFilterState: Preference<Boolean> = preferenceStore.getBoolean(
         Preference.appStateKey("has_filters_toggle_state"),

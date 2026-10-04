@@ -1,8 +1,11 @@
 pluginManagement {
     includeBuild("gradle/build-logic")
     repositories {
+        mavenLocal()
         google()
         mavenCentral()
+        maven(url = "https://maven.aliyun.com/repository/public")
+        maven(url = "https://maven.aliyun.com/repository/gradle-plugin")
         gradlePluginPortal()
         maven(url = "https://www.jitpack.io")
     }
@@ -20,8 +23,11 @@ dependencyResolutionManagement {
 
     @Suppress("UnstableApiUsage")
     repositories {
+        mavenLocal()
         google()
         mavenCentral()
+        maven(url = "https://maven.aliyun.com/repository/public")
+        maven(url = "https://maven.aliyun.com/repository/gradle-plugin")
         maven(url = "https://www.jitpack.io")
     }
 }
@@ -45,3 +51,9 @@ include(":presentation-widget")
 include(":source-api")
 include(":source-local")
 include(":telemetry")
+
+includeBuild("../PicACG-Api-Java")
+includeBuild("../JMComic-Api-Java")
+includeBuild("../CT-Api-Java")
+includeBuild("../Ehentai-api-Java")
+includeBuild("../FourKHD-Api-Java")

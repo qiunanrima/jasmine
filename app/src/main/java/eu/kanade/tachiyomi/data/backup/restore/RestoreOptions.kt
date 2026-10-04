@@ -39,11 +39,6 @@ data class RestoreOptions(
                 setter = { options, enabled -> options.copy(appSettings = enabled) },
             ),
             Entry(
-                label = MR.strings.extensionStores,
-                getter = RestoreOptions::extensionStores,
-                setter = { options, enabled -> options.copy(extensionStores = enabled) },
-            ),
-            Entry(
                 label = MR.strings.source_settings,
                 getter = RestoreOptions::sourceSettings,
                 setter = { options, enabled -> options.copy(sourceSettings = enabled) },

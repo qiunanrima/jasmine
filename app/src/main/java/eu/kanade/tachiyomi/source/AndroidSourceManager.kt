@@ -5,7 +5,11 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.download.DownloadManager
-import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.source.builtin.cosplaytele.CosplayteleSource
+import eu.kanade.tachiyomi.source.builtin.ehentai.EhentaiSource
+import eu.kanade.tachiyomi.source.builtin.fourkhd.FourKhdSource
+import eu.kanade.tachiyomi.source.builtin.jmcomic.JmcomicSource
+import eu.kanade.tachiyomi.source.builtin.picacg.PicacgSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,9 +31,13 @@ import java.util.concurrent.ConcurrentHashMap
 @SingleIn(AppScope::class)
 @ContributesBinding(AppScope::class)
 class AndroidSourceManager(
-    private val extensionManager: ExtensionManager,
     private val sourceRepository: StubSourceRepository,
     private val localSource: LocalSource,
+    private val picacgSource: PicacgSource,
+    private val jmcomicSource: JmcomicSource,
+    private val cosplayteleSource: CosplayteleSource,
+    private val ehentaiSource: EhentaiSource,
+    private val fourKhdSource: FourKhdSource,
     private val downloadManager: Lazy<DownloadManager>,
 ) : SourceManager {
 
@@ -47,21 +55,22 @@ class AndroidSourceManager(
         .map { it.values.toList() }
 
     init {
-        scope.launch {
-            extensionManager.loadedExtensionsFlow
-                .collectLatest { extensions ->
-                    val mutableMap = ConcurrentHashMap<Long, Source>(
-                        mapOf(LocalSource.ID to localSource),
-                    )
-                    extensions.forEach { extension ->
-                        extension.sources.forEach {
-                            mutableMap[it.id] = it
-                            registerStubSource(StubSource.from(it))
-                        }
-                    }
-                    sourcesMapFlow.value = mutableMap
-                }
-        }
+        sourcesMapFlow.value = ConcurrentHashMap<Long, Source>(
+            mapOf(
+                LocalSource.ID to localSource,
+                picacgSource.id to picacgSource,
+                jmcomicSource.id to jmcomicSource,
+                cosplayteleSource.id to cosplayteleSource,
+                ehentaiSource.id to ehentaiSource,
+                fourKhdSource.id to fourKhdSource,
+            ),
+        )
+
+        registerStubSource(StubSource.from(picacgSource))
+        registerStubSource(StubSource.from(jmcomicSource))
+        registerStubSource(StubSource.from(cosplayteleSource))
+        registerStubSource(StubSource.from(ehentaiSource))
+        registerStubSource(StubSource.from(fourKhdSource))
 
         scope.launch {
             sourceRepository.subscribeAll()
@@ -70,6 +79,8 @@ class AndroidSourceManager(
                     sources.forEach {
                         mutableMap[it.id] = it
                     }
+                    stubSourcesMap.clear()
+                    stubSourcesMap.putAll(mutableMap)
                 }
         }
     }
@@ -115,10 +126,6 @@ class AndroidSourceManager(
 
     private suspend fun createStubSource(id: Long): StubSource {
         sourceRepository.getStubSource(id)?.let {
-            return it
-        }
-        extensionManager.getSourceData(id)?.let {
-            registerStubSource(it)
             return it
         }
         return StubSource(id = id, lang = "", name = "")

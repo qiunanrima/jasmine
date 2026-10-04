@@ -52,84 +52,92 @@ data object UpdatesTab : Tab {
 
     @Composable
     override fun Content() {
-        val context = LocalContext.current
-        val navigator = LocalNavigator.currentOrThrow
-        val viewModel = metroViewModel<UpdatesViewModel>()
-        val settingsViewModel = metroViewModel<UpdatesSettingsViewModel>()
-        val state by viewModel.state.collectAsStateWithLifecycle()
+        UpdatesContent()
+    }
+}
 
-        UpdateScreen(
-            state = state,
-            snackbarHostState = viewModel.snackbarHostState,
-            lastUpdated = viewModel.lastUpdated,
-            onClickCover = { item -> navigator.push(MangaScreen(item.update.mangaId)) },
-            onSelectAll = viewModel::toggleAllSelection,
-            onInvertSelection = viewModel::invertSelection,
-            onUpdateLibrary = viewModel::updateLibrary,
-            onDownloadChapter = viewModel::downloadChapters,
-            onMultiBookmarkClicked = viewModel::bookmarkUpdates,
-            onMultiMarkAsReadClicked = viewModel::markUpdatesRead,
-            onMultiDeleteClicked = viewModel::showConfirmDeleteChapters,
-            onUpdateSelected = viewModel::toggleSelection,
-            onOpenChapter = {
-                val intent = ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId)
-                context.startActivity(intent)
-            },
-            onCalendarClicked = { navigator.push(UpcomingScreen()) },
-            onFilterClicked = viewModel::showFilterDialog,
-            hasActiveFilters = state.hasActiveFilters,
-        )
+@Composable
+fun UpdatesContent(
+    topBarTabs: @Composable () -> Unit = {},
+) {
+    val context = LocalContext.current
+    val navigator = LocalNavigator.currentOrThrow
+    val viewModel = metroViewModel<UpdatesViewModel>()
+    val settingsViewModel = metroViewModel<UpdatesSettingsViewModel>()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
-        val onDismissDialog = { viewModel.setDialog(null) }
-        when (val dialog = state.dialog) {
-            is UpdatesViewModel.Dialog.DeleteConfirmation -> {
-                UpdatesDeleteConfirmationDialog(
-                    onDismissRequest = onDismissDialog,
-                    onConfirm = { viewModel.deleteChapters(dialog.toDelete) },
-                )
-            }
-            is UpdatesViewModel.Dialog.FilterSheet -> {
-                UpdatesFilterDialog(
-                    onDismissRequest = onDismissDialog,
-                    viewModel = settingsViewModel,
-                )
-            }
-            null -> {}
+    UpdateScreen(
+        state = state,
+        snackbarHostState = viewModel.snackbarHostState,
+        lastUpdated = viewModel.lastUpdated,
+        onClickCover = { item -> navigator.push(MangaScreen(item.update.mangaId)) },
+        onSelectAll = viewModel::toggleAllSelection,
+        onInvertSelection = viewModel::invertSelection,
+        onUpdateLibrary = viewModel::updateLibrary,
+        onDownloadChapter = viewModel::downloadChapters,
+        onMultiBookmarkClicked = viewModel::bookmarkUpdates,
+        onMultiMarkAsReadClicked = viewModel::markUpdatesRead,
+        onMultiDeleteClicked = viewModel::showConfirmDeleteChapters,
+        onUpdateSelected = viewModel::toggleSelection,
+        onOpenChapter = {
+            val intent = ReaderActivity.newIntent(context, it.update.mangaId, it.update.chapterId)
+            context.startActivity(intent)
+        },
+        onCalendarClicked = { navigator.push(UpcomingScreen()) },
+        onFilterClicked = viewModel::showFilterDialog,
+        hasActiveFilters = state.hasActiveFilters,
+        topBarTabs = topBarTabs,
+    )
+
+    val onDismissDialog = { viewModel.setDialog(null) }
+    when (val dialog = state.dialog) {
+        is UpdatesViewModel.Dialog.DeleteConfirmation -> {
+            UpdatesDeleteConfirmationDialog(
+                onDismissRequest = onDismissDialog,
+                onConfirm = { viewModel.deleteChapters(dialog.toDelete) },
+            )
         }
+        is UpdatesViewModel.Dialog.FilterSheet -> {
+            UpdatesFilterDialog(
+                onDismissRequest = onDismissDialog,
+                viewModel = settingsViewModel,
+            )
+        }
+        null -> {}
+    }
 
-        LaunchedEffect(Unit) {
-            viewModel.events.collectLatest { event ->
-                when (event) {
-                    Event.InternalError -> viewModel.snackbarHostState.showSnackbar(
-                        context.stringResource(MR.strings.internal_error),
-                    )
-                    is Event.LibraryUpdateTriggered -> {
-                        val msg = if (event.started) {
-                            MR.strings.updating_library
-                        } else {
-                            MR.strings.update_already_running
-                        }
-                        viewModel.snackbarHostState.showSnackbar(context.stringResource(msg))
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                Event.InternalError -> viewModel.snackbarHostState.showSnackbar(
+                    context.stringResource(MR.strings.internal_error),
+                )
+                is Event.LibraryUpdateTriggered -> {
+                    val msg = if (event.started) {
+                        MR.strings.updating_library
+                    } else {
+                        MR.strings.update_already_running
                     }
+                    viewModel.snackbarHostState.showSnackbar(context.stringResource(msg))
                 }
             }
         }
+    }
 
-        LaunchedEffect(state.selectionMode) {
-            HomeScreen.showBottomNav(!state.selectionMode)
-        }
+    LaunchedEffect(state.selectionMode) {
+        HomeScreen.showBottomNav(!state.selectionMode)
+    }
 
-        LaunchedEffect(state.isLoading) {
-            if (!state.isLoading) {
-                (context as? MainActivity)?.ready = true
-            }
+    LaunchedEffect(state.isLoading) {
+        if (!state.isLoading) {
+            (context as? MainActivity)?.ready = true
         }
-        DisposableEffect(Unit) {
+    }
+    DisposableEffect(Unit) {
+        viewModel.resetNewUpdatesCount()
+
+        onDispose {
             viewModel.resetNewUpdatesCount()
-
-            onDispose {
-                viewModel.resetNewUpdatesCount()
-            }
         }
     }
 }

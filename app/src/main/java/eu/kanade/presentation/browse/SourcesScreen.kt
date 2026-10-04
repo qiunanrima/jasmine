@@ -14,6 +14,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -21,6 +26,10 @@ import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.tachiyomi.ui.browse.source.SourcesViewModel
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
+import tachiyomi.presentation.core.components.material.PullRefresh
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.PushPin
 import mihon.icons.materialsymbols.roundedfilled.PushPin
@@ -53,38 +62,54 @@ fun SourcesScreen(
             modifier = Modifier.padding(contentPadding),
         )
         else -> {
-            ScrollbarLazyColumn(
-                contentPadding = contentPadding + topSmallPaddingValues,
+            val scope = rememberCoroutineScope()
+            var isRefreshing by remember { mutableStateOf(false) }
+
+            PullRefresh(
+                refreshing = isRefreshing,
+                enabled = !isRefreshing,
+                onRefresh = {
+                    scope.launch {
+                        isRefreshing = true
+                        delay(1.seconds)
+                        isRefreshing = false
+                    }
+                },
+                indicatorPadding = contentPadding,
             ) {
-                items(
-                    items = state.items,
-                    contentType = {
-                        when (it) {
-                            is SourceUiModel.Header -> "header"
-                            is SourceUiModel.Item -> "item"
-                        }
-                    },
-                    key = {
-                        when (it) {
-                            is SourceUiModel.Header -> it.hashCode()
-                            is SourceUiModel.Item -> "source-${it.source.key()}"
-                        }
-                    },
-                ) { model ->
-                    when (model) {
-                        is SourceUiModel.Header -> {
-                            SourceHeader(
+                ScrollbarLazyColumn(
+                    contentPadding = contentPadding + topSmallPaddingValues,
+                ) {
+                    items(
+                        items = state.items,
+                        contentType = {
+                            when (it) {
+                                is SourceUiModel.Header -> "header"
+                                is SourceUiModel.Item -> "item"
+                            }
+                        },
+                        key = {
+                            when (it) {
+                                is SourceUiModel.Header -> it.hashCode()
+                                is SourceUiModel.Item -> "source-${it.source.key()}"
+                            }
+                        },
+                    ) { model ->
+                        when (model) {
+                            is SourceUiModel.Header -> {
+                                SourceHeader(
+                                    modifier = Modifier.animateItem(),
+                                    language = model.language,
+                                )
+                            }
+                            is SourceUiModel.Item -> SourceItem(
                                 modifier = Modifier.animateItem(),
-                                language = model.language,
+                                source = model.source,
+                                onClickItem = onClickItem,
+                                onLongClickItem = onLongClickItem,
+                                onClickPin = onClickPin,
                             )
                         }
-                        is SourceUiModel.Item -> SourceItem(
-                            modifier = Modifier.animateItem(),
-                            source = model.source,
-                            onClickItem = onClickItem,
-                            onLongClickItem = onLongClickItem,
-                            onClickPin = onClickPin,
-                        )
                     }
                 }
             }

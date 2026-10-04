@@ -17544,7 +17544,6 @@ HSPLeu/kanade/domain/source/interactor/GetIncognitoState;-><clinit>()V
 HSPLeu/kanade/domain/source/interactor/GetIncognitoState;-><init>(Leu/kanade/domain/base/BasePreferences;Leu/kanade/domain/source/service/SourcePreferences;Leu/kanade/tachiyomi/extension/ExtensionManager;)V
 HSPLeu/kanade/domain/source/interactor/GetIncognitoState;->await(Ljava/lang/Long;)Z
 HSPLeu/kanade/domain/source/interactor/GetIncognitoState;->subscribe(Ljava/lang/Long;)Lkotlinx/coroutines/flow/Flow;
-Leu/kanade/domain/source/interactor/GetLanguagesWithSources;
 Leu/kanade/domain/source/interactor/GetSourcesWithFavoriteCount;
 Leu/kanade/domain/source/interactor/SetMigrateSorting;
 Leu/kanade/domain/source/interactor/SetMigrateSorting$Direction;
@@ -17556,7 +17555,6 @@ HSPLeu/kanade/domain/source/interactor/SetMigrateSorting$Mode;->$values()[Leu/ka
 HSPLeu/kanade/domain/source/interactor/SetMigrateSorting$Mode;-><clinit>()V
 HSPLeu/kanade/domain/source/interactor/SetMigrateSorting$Mode;-><init>(Ljava/lang/String;I)V
 Leu/kanade/domain/source/interactor/ToggleIncognito;
-Leu/kanade/domain/source/interactor/ToggleLanguage;
 Leu/kanade/domain/source/interactor/ToggleSource;
 Leu/kanade/domain/source/interactor/ToggleSourcePin;
 Leu/kanade/domain/source/service/SourcePreferences;

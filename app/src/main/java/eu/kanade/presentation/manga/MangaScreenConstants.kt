@@ -5,6 +5,7 @@ enum class DownloadAction {
     NEXT_5_CHAPTERS,
     NEXT_10_CHAPTERS,
     NEXT_25_CHAPTERS,
+    ALL_CHAPTERS,
     UNREAD_CHAPTERS,
     BOOKMARKED_CHAPTERS,
 }
@@ -18,6 +19,7 @@ enum class MangaScreenItem {
     INFO_BOX,
     ACTION_ROW,
     DESCRIPTION_WITH_TAG,
+    COMMENTS,
     CHAPTER_HEADER,
     CHAPTER,
 }

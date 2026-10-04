@@ -11,6 +11,8 @@ object Constants {
 
     const val MAIN_ACTIVITY = "eu.kanade.tachiyomi.ui.main.MainActivity"
 
+    const val APK_MIME = "application/vnd.android.package-archive"
+
     // Shortcut actions
     const val SHORTCUT_LIBRARY = "eu.kanade.tachiyomi.SHOW_LIBRARY"
     const val SHORTCUT_MANGA = "eu.kanade.tachiyomi.SHOW_MANGA"

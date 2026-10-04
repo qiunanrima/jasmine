@@ -76,11 +76,6 @@ data class BackupOptions(
                 setter = { options, enabled -> options.copy(appSettings = enabled) },
             ),
             Entry(
-                label = MR.strings.extensionStores,
-                getter = BackupOptions::extensionStores,
-                setter = { options, enabled -> options.copy(extensionStores = enabled) },
-            ),
-            Entry(
                 label = MR.strings.source_settings,
                 getter = BackupOptions::sourceSettings,
                 setter = { options, enabled -> options.copy(sourceSettings = enabled) },

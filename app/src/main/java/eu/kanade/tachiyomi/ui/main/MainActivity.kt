@@ -72,15 +72,13 @@ import eu.kanade.presentation.components.AppStateBanners
 import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
 import eu.kanade.presentation.components.IncognitoModeBannerBackgroundColor
 import eu.kanade.presentation.components.IndexingBannerBackgroundColor
-import eu.kanade.presentation.more.settings.screen.browse.ExtensionStoresScreen
 import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
-import eu.kanade.tachiyomi.extension.ExtensionManager
-import eu.kanade.tachiyomi.extension.api.ExtensionApi
+
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
@@ -140,10 +138,6 @@ class MainActivity : BaseActivity() {
     @Inject private lateinit var chapterCache: ChapterCache
 
     @Inject private lateinit var getIncognitoState: GetIncognitoState
-
-    @Inject private lateinit var extensionApi: ExtensionApi
-
-    @Inject private lateinit var extensionManager: ExtensionManager
 
     // To be checked by splash screen. If true then splash screen will be removed.
     var ready = false
@@ -336,15 +330,6 @@ class MainActivity : BaseActivity() {
                 } catch (e: Exception) {
                     logcat(LogPriority.ERROR, e)
                 }
-            }
-        }
-
-        // Extensions updates
-        LaunchedEffect(Unit) {
-            try {
-                extensionApi.checkForUpdates(extensionManager.getLoadedExtensions())
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e)
             }
         }
     }
@@ -543,8 +528,7 @@ class MainActivity : BaseActivity() {
             }
             Constants.SHORTCUT_UPDATES -> HomeScreen.Tab.Updates
             Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.History
-            Constants.SHORTCUT_SOURCES -> HomeScreen.Tab.Browse(false)
-            Constants.SHORTCUT_EXTENSIONS -> HomeScreen.Tab.Browse(true)
+            Constants.SHORTCUT_SOURCES, Constants.SHORTCUT_EXTENSIONS -> HomeScreen.Tab.Browse(false)
             Constants.SHORTCUT_DOWNLOADS -> {
                 navigator.popUntilRoot()
                 HomeScreen.Tab.More(toDownloads = true)
@@ -581,13 +565,6 @@ class MainActivity : BaseActivity() {
                     navigator.popUntilRoot()
                     navigator.push(RestoreBackupScreen(intent.data.toString()))
                 }
-                // Deep link to add extension store
-                else if (intent.isAddExtensionStoreIntent()) {
-                    intent.data?.getQueryParameter("url")?.let { repoUrl ->
-                        navigator.popUntilRoot()
-                        navigator.push(ExtensionStoresScreen(repoUrl))
-                    }
-                }
                 null
             }
             else -> return false
@@ -599,11 +576,6 @@ class MainActivity : BaseActivity() {
 
         ready = true
         return true
-    }
-
-    private fun Intent.isAddExtensionStoreIntent(): Boolean {
-        return (scheme == "tachiyomi" && data?.host == "add-repo") ||
-            (scheme == "mihon" && data?.host == "extension-store")
     }
 
     companion object {

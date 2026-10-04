@@ -51,6 +51,7 @@ import eu.kanade.presentation.manga.components.ExpandableMangaDescription
 import eu.kanade.presentation.manga.components.MangaActionRow
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
+import eu.kanade.presentation.manga.components.MangaCommentPreview
 import eu.kanade.presentation.manga.components.MangaInfoBox
 import eu.kanade.presentation.manga.components.MangaToolbar
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
@@ -92,6 +93,7 @@ fun MangaScreen(
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
     onTrackingClicked: () -> Unit,
+    onCommentsClicked: (() -> Unit)? = null,
 
     // For tags menu
     onTagSearch: (String) -> Unit,
@@ -147,6 +149,7 @@ fun MangaScreen(
             onWebViewClicked = onWebViewClicked,
             onWebViewLongClicked = onWebViewLongClicked,
             onTrackingClicked = onTrackingClicked,
+            onCommentsClicked = onCommentsClicked,
             onTagSearch = onTagSearch,
             onCopyTagToClipboard = onCopyTagToClipboard,
             onFilterClicked = onFilterButtonClicked,
@@ -183,6 +186,7 @@ fun MangaScreen(
             onWebViewClicked = onWebViewClicked,
             onWebViewLongClicked = onWebViewLongClicked,
             onTrackingClicked = onTrackingClicked,
+            onCommentsClicked = onCommentsClicked,
             onTagSearch = onTagSearch,
             onCopyTagToClipboard = onCopyTagToClipboard,
             onFilterButtonClicked = onFilterButtonClicked,
@@ -222,6 +226,7 @@ private fun MangaScreenSmallImpl(
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
     onTrackingClicked: () -> Unit,
+    onCommentsClicked: (() -> Unit)? = null,
 
     // For tags menu
     onTagSearch: (String) -> Unit,
@@ -400,6 +405,7 @@ private fun MangaScreenSmallImpl(
                             onTrackingClicked = onTrackingClicked,
                             onEditIntervalClicked = onEditIntervalClicked,
                             onEditCategory = onEditCategoryClicked,
+                            onCommentsClicked = onCommentsClicked,
                         )
                     }
 
@@ -408,13 +414,25 @@ private fun MangaScreenSmallImpl(
                         contentType = MangaScreenItem.DESCRIPTION_WITH_TAG,
                     ) {
                         ExpandableMangaDescription(
-                            defaultExpandState = state.isFromSource,
+                            defaultExpandDescription = false,
+                            defaultExpandTags = false,
                             description = state.manga.description,
                             tagsProvider = { state.manga.genre },
                             notes = state.manga.notes,
                             onTagSearch = onTagSearch,
                             onCopyTagToClipboard = onCopyTagToClipboard,
                             onEditNotes = onEditNotesClicked,
+                        )
+                    }
+
+                    item(
+                        key = MangaScreenItem.COMMENTS,
+                        contentType = MangaScreenItem.COMMENTS,
+                    ) {
+                        MangaCommentPreview(
+                            source = remember { state.source },
+                            comicUrl = state.manga.url,
+                            onViewAllComments = { onCommentsClicked?.invoke() },
                         )
                     }
 
@@ -464,6 +482,7 @@ fun MangaScreenLargeImpl(
     onWebViewClicked: (() -> Unit)?,
     onWebViewLongClicked: (() -> Unit)?,
     onTrackingClicked: () -> Unit,
+    onCommentsClicked: (() -> Unit)? = null,
 
     // For tags menu
     onTagSearch: (String) -> Unit,
@@ -630,15 +649,22 @@ fun MangaScreenLargeImpl(
                             onTrackingClicked = onTrackingClicked,
                             onEditIntervalClicked = onEditIntervalClicked,
                             onEditCategory = onEditCategoryClicked,
+                            onCommentsClicked = onCommentsClicked,
                         )
                         ExpandableMangaDescription(
-                            defaultExpandState = true,
+                            defaultExpandDescription = false,
+                            defaultExpandTags = false,
                             description = state.manga.description,
                             tagsProvider = { state.manga.genre },
                             notes = state.manga.notes,
                             onTagSearch = onTagSearch,
                             onCopyTagToClipboard = onCopyTagToClipboard,
                             onEditNotes = onEditNotesClicked,
+                        )
+                        MangaCommentPreview(
+                            source = remember { state.source },
+                            comicUrl = state.manga.url,
+                            onViewAllComments = { onCommentsClicked?.invoke() },
                         )
                     }
                 },

@@ -3,29 +3,24 @@ package eu.kanade.tachiyomi.ui.browse
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.animation.graphics.vector.AnimatedImageVector
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import dev.zacsweers.metrox.viewmodel.metroViewModel
-import eu.kanade.presentation.components.TabbedScreen
+import eu.kanade.presentation.browse.BrowseScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsViewModel
-import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
-import eu.kanade.tachiyomi.ui.browse.migration.sources.migrateSourceTab
+import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
-import eu.kanade.tachiyomi.ui.browse.source.sourcesTab
 import eu.kanade.tachiyomi.ui.main.MainActivity
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.receiveAsFlow
+import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -37,7 +32,7 @@ data object BrowseTab : Tab {
             val isSelected = LocalTabNavigator.current.current.key == key
             val image = AnimatedImageVector.animatedVectorResource(R.drawable.anim_browse_enter)
             return TabOptions(
-                index = 3u,
+                index = 0u,
                 title = stringResource(MR.strings.browse),
                 icon = rememberAnimatedVectorPainter(image, isSelected),
             )
@@ -47,39 +42,33 @@ data object BrowseTab : Tab {
         navigator.push(GlobalSearchScreen())
     }
 
-    private val switchToExtensionTabChannel = Channel<Unit>(1, BufferOverflow.DROP_OLDEST)
-
-    fun showExtension() {
-        switchToExtensionTabChannel.trySend(Unit)
-    }
-
     @Composable
     override fun Content() {
+        val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
 
-        // Hoisted for extensions tab's search bar
-        val extensionsViewModel = metroViewModel<ExtensionsViewModel>()
-        val extensionsSearchQuery by extensionsViewModel.searchQuery.collectAsStateWithLifecycle()
+        val viewModel = metroViewModel<BrowseViewModel>()
+        val state by viewModel.state.collectAsStateWithLifecycle()
 
-        val tabs = listOf(
-            sourcesTab(),
-            extensionsTab(extensionsViewModel),
-            migrateSourceTab(),
-        )
-
-        val state = rememberPagerState { tabs.size }
-
-        TabbedScreen(
-            titleRes = MR.strings.browse,
-            tabs = tabs,
+        BrowseScreen(
             state = state,
-            searchQuery = extensionsSearchQuery,
-            onChangeSearchQuery = extensionsViewModel::search,
+            getManga = { viewModel.getManga(it) },
+            onClickSource = { source ->
+                navigator.push(BrowseSourceScreen(source.id, null))
+            },
+            onClickItem = { manga ->
+                navigator.push(MangaScreen(manga.id, true))
+            },
+            onLongClickItem = { manga ->
+                navigator.push(MangaScreen(manga.id, true))
+            },
+            onClickSearch = {
+                navigator.push(GlobalSearchScreen())
+            },
+            onRefresh = {
+                viewModel.loadPopularManga(isRefresh = true)
+            },
         )
-        LaunchedEffect(Unit) {
-            switchToExtensionTabChannel.receiveAsFlow()
-                .collectLatest { state.scrollToPage(1) }
-        }
 
         LaunchedEffect(Unit) {
             (context as? MainActivity)?.ready = true

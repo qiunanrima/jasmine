@@ -487,7 +487,7 @@ class LibraryViewModel(
     }
 
     /**
-     * Queues the amount specified of unread chapters from the list of selected manga
+     * Queues the requested chapters from the list of selected manga.
      */
     fun performDownloadAction(action: DownloadAction) {
         when (action) {
@@ -495,17 +495,18 @@ class LibraryViewModel(
             DownloadAction.NEXT_5_CHAPTERS -> downloadNextChapters(5)
             DownloadAction.NEXT_10_CHAPTERS -> downloadNextChapters(10)
             DownloadAction.NEXT_25_CHAPTERS -> downloadNextChapters(25)
-            DownloadAction.UNREAD_CHAPTERS -> downloadNextChapters(null)
+            DownloadAction.ALL_CHAPTERS -> downloadNextChapters(null, onlyUnread = false)
+            DownloadAction.UNREAD_CHAPTERS -> downloadNextChapters(null, onlyUnread = true)
             DownloadAction.BOOKMARKED_CHAPTERS -> downloadBookmarkedChapters()
         }
         clearSelection()
     }
 
-    private fun downloadNextChapters(amount: Int?) {
+    private fun downloadNextChapters(amount: Int?, onlyUnread: Boolean = false) {
         val mangas = selectedManga
         viewModelScope.launchNonCancellable {
             mangas.forEach { manga ->
-                val chapters = getNextChapters.await(manga.id)
+                val chapters = getNextChapters.await(manga.id, onlyUnread)
                     .fastFilterNot { chapter ->
                         downloadManager.getQueuedDownloadOrNull(chapter.id) != null ||
                             downloadManager.isChapterDownloaded(

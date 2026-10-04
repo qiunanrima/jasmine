@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SearchViewModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.SourceFilter
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
 
 @Composable
@@ -49,6 +50,7 @@ fun GlobalSearchScreen(
             )
         },
     ) { paddingValues ->
+        val isSearching = state.progress < state.total
         GlobalSearchContent(
             items = state.filteredItems,
             contentPadding = paddingValues,
@@ -56,6 +58,8 @@ fun GlobalSearchScreen(
             onClickSource = onClickSource,
             onClickItem = onClickItem,
             onLongClickItem = onLongClickItem,
+            refreshing = isSearching,
+            onRefresh = { state.searchQuery?.let { onSearch(it) } },
         )
     }
 }
@@ -69,10 +73,18 @@ internal fun GlobalSearchContent(
     onClickItem: (Manga) -> Unit,
     onLongClickItem: (Manga) -> Unit,
     fromSourceId: Long? = null,
+    refreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
 ) {
-    LazyColumn(
-        contentPadding = contentPadding,
+    PullRefresh(
+        refreshing = refreshing,
+        enabled = onRefresh != null,
+        indicatorPadding = contentPadding,
+        onRefresh = { onRefresh?.invoke() },
     ) {
+        LazyColumn(
+            contentPadding = contentPadding,
+        ) {
         items.forEach { (source, result) ->
             item(key = source.id) {
                 GlobalSearchResultItem(
@@ -103,4 +115,5 @@ internal fun GlobalSearchContent(
             }
         }
     }
+}
 }
