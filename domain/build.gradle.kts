@@ -17,6 +17,7 @@ kotlin {
 }
 
 dependencies {
+    api(projects.domain.category)
     implementation(projects.sourceApi)
     implementation(projects.core.common)
 

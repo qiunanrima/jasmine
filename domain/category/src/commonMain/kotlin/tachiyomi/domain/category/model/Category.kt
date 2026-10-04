@@ -1,13 +1,13 @@
 package tachiyomi.domain.category.model
 
-import java.io.Serializable
+import tachiyomi.domain.category.platform.PlatformSerializable
 
 data class Category(
     val id: Long,
     val name: String,
     val order: Long,
     val flags: Long,
-) : Serializable {
+) : PlatformSerializable {
 
     val isSystemCategory: Boolean = id == UNCATEGORIZED_ID
 
