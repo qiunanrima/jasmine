@@ -6,7 +6,6 @@
 
 # Jasmine [App](#)
 
-### Full-featured reader
 A thrid-party app of PicACG & JMcomic
 Based on Mihon
 
@@ -16,42 +15,6 @@ Based on Mihon
 [![Jasmine Beta](https://img.shields.io/github/v/release/qiunanrima/jasmine-preview.svg?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39)](https://jasmine.app/download)
 
 *Requires Android 8.0 or higher.*
-
-## Features
-
-<div align="left">
-
-* Local reading of content.
-* A configurable reader with multiple viewers, reading directions and other settings.
-* Tracker support: [MangaBaka](https://mangabaka.org), [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), [Bangumi](https://bgm.tv/), and [Hikka](https://hikka.io/) support.
-* Categories to organize your library.
-* Light and dark themes.
-* Schedule updating your library for new chapters.
-* Create backups locally to read offline or to your desired cloud service.
-* Plus much more...
-
-</div>
-
-## Contributing
-
-[Code of conduct](./CODE_OF_CONDUCT.md) · [Contributing guide](./CONTRIBUTING.md)
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-Before reporting a new issue, take a look at the [FAQ](https://jasmine.app/docs/faq/general), the [changelog](https://jasmine.app/changelogs/) and the already opened [issues](https://github.com/qiunanrima/jasmine/issues); if you got any questions, join our [Discord server](https://discord.gg/jasmine).
-
-
-### Credits
-
-Thank you to all the people who have contributed!
-
-<a href="https://github.com/qiunanrima/jasmine/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=qiunanrima/jasmine" alt="Jasmine app contributors" title="Jasmine app contributors" width="800"/>
-</a>
-
-### Disclaimer
-
-The developer(s) of this application does not have any affiliation with the content providers available, and this application hosts zero content.
 
 ### License
 
