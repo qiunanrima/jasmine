@@ -1,5 +1,8 @@
 -dontobfuscate
 
+# Gson TypeToken and reflective serializers need generic metadata in release builds.
+-keepattributes Signature
+
 -keep,allowoptimization class eu.kanade.**
 -keep,allowoptimization class tachiyomi.**
 -keep,allowoptimization class mihon.**
@@ -101,3 +104,8 @@
 -keep,allowoptimization class com.picacomic.** { *; }
 -keep,allowoptimization class io.github.jukomu.jmcomic.** { *; }
 -keep,allowoptimization class com.fourkhd.** { *; }
+-keep,allowoptimization class com.ehapi.** { *; }
+
+# ImageDecoder is accessed through Coil's decoder factory and its nested
+# exception is referenced by the native-backed implementation at runtime.
+-keep,allowoptimization class ca.mpreg.imagedecoder.** { *; }

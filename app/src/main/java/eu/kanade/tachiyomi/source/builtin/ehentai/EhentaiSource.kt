@@ -33,7 +33,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import okhttp3.OkHttpClient
 import okhttp3.CookieJar
+import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.Request
 import org.jsoup.Jsoup
 
 /**
@@ -62,6 +64,8 @@ class EhentaiSource(
 
     @Volatile
     private var _ehClient: EhClient? = null
+
+    private val tagTranslation by lazy { EhTagTranslation(context, network.client) }
 
     private fun getClient(): EhClient {
         _ehClient?.let { return it }
@@ -134,7 +138,7 @@ class EhentaiSource(
                     ?.takeIf { it.isNotBlank() } ?: link.text().trim().ifBlank { return@mapNotNull null }
                 val image = row.selectFirst("img")?.let { it.attr("data-src").ifBlank { it.attr("src") } }
                 SManga.create().apply {
-                    url = href
+                    this.url = href
                     this.title = title
                     thumbnail_url = image
                     status = SManga.COMPLETED
@@ -142,6 +146,32 @@ class EhentaiSource(
             }
         val hasNext = doc.selectFirst("a#dnext") != null
         AlignedPageResult(mangas.distinctBy { it.url }, hasNext)
+    }
+
+    override suspend fun addFavoriteComic(comicId: String): Result<Unit> = updateRemoteFavorite(comicId, 0)
+
+    override suspend fun removeFavoriteComic(comicId: String): Result<Unit> = updateRemoteFavorite(comicId, -1)
+
+    private suspend fun updateRemoteFavorite(comicId: String, category: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            check(isUserLoggedIn) { "E-Hentai favorites require login" }
+            val (gid, token) = getClient().parseComicId(extractComicId(comicId))
+                ?: error("Invalid E-Hentai gallery URL")
+            val url = "${getClient().getEffectiveBaseUrl()}gallerypopups.php?gid=$gid&t=$token&act=addfav"
+            val form = FormBody.Builder()
+                .add("favcat", if (category < 0) "favdel" else category.toString())
+                .add("favnote", "")
+                .add("submit", "Apply Changes")
+                .add("update", "1")
+                .build()
+            client.newCall(
+                Request.Builder().url(url).post(form).header("Referer", url).build(),
+            ).execute().use { response ->
+                check(response.isSuccessful) { "E-Hentai favorite update failed: HTTP ${response.code}" }
+                val body = response.body.string()
+                check(!body.contains("loginform", ignoreCase = true)) { "E-Hentai login expired" }
+            }
+        }
     }
 
     override suspend fun login(account: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
@@ -322,6 +352,11 @@ class EhentaiSource(
     override suspend fun fetchMangaDetails(comicId: String): SManga = withContext(Dispatchers.IO) {
         val cleanId = extractComicId(comicId)
         val detail = getClient().getComicDetail(cleanId).getOrThrow()
+        val translatedTags = if (getSourcePreferences().getBoolean(PREF_KEY_TRANSLATE_TAGS, true)) {
+            tagTranslation.translate(detail.tags)
+        } else {
+            detail.tags
+        }
         SManga.create().apply {
             this.url = "/comic/${detail.itemId}"
             this.title = detail.name
@@ -331,10 +366,10 @@ class EhentaiSource(
                 append("总页数: ").append(detail.pageCount).append(" P\n")
                 append("虚拟卷数: ").append(detail.totalChapters).append("\n")
                 if (detail.tags.isNotEmpty()) {
-                    append("\n标签: ").append(detail.tags.joinToString(", "))
+                    append("\n标签: ").append(translatedTags.joinToString(", "))
                 }
             }
-            this.genre = detail.tags.joinToString(", ")
+            this.genre = translatedTags.joinToString(", ")
             this.status = SManga.COMPLETED
         }
     }
@@ -490,6 +525,12 @@ class EhentaiSource(
                 true
             }
         }
+        val translateTagsPref = SwitchPreferenceCompat(screen.context).apply {
+            key = PREF_KEY_TRANSLATE_TAGS
+            title = "使用 EhTagTranslation 标签翻译"
+            summary = "从 GitHub 数据库同步中文标签，网络不可用时使用缓存"
+            setDefaultValue(true)
+        }
 
         screen.addPreference(baseUrlPref)
         screen.addPreference(cookiePref)
@@ -498,6 +539,7 @@ class EhentaiSource(
         screen.addPreference(widthPref)
         screen.addPreference(proxyHostPref)
         screen.addPreference(proxyPortPref)
+        screen.addPreference(translateTagsPref)
     }
 
     private fun parseSearchResponse(response: EhSearchResponse): AlignedPageResult {
@@ -579,5 +621,6 @@ class EhentaiSource(
         private const val PREF_KEY_WIDTH = "pref_eh_width"
         private const val PREF_KEY_PROXY_HOST = "pref_eh_proxy_host"
         private const val PREF_KEY_PROXY_PORT = "pref_eh_proxy_port"
+        private const val PREF_KEY_TRANSLATE_TAGS = "pref_eh_translate_tags"
     }
 }
