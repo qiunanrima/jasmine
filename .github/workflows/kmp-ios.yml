@@ -41,6 +41,8 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          gradle-version: 9.6.1
 
       - name: Inspect Xcode and simulator environment
         run: |
@@ -49,7 +51,7 @@ jobs:
 
       - name: Test shared code and build device framework
         run: |
-          bash ./gradlew -p kmp \
+          gradle -p kmp \
             :category:spotlessCheck \
             :category:jvmTest \
             :category:iosSimulatorArm64Test \
