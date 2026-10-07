@@ -23,4 +23,4 @@
 		00000000000000000000000E = {isa = XCConfigurationList; buildConfigurations = (00000000000000000000000F, 000000000000000000000010); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 	};
 	rootObject = 00000000000000000000000C;
-}
+};
