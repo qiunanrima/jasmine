@@ -1,7 +1,8 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {};
+	classes = {
+	};
 	objectVersion = 56;
 	objects = {
 		A00000000000000000000011 = {isa = PBXBuildFile; fileRef = A00000000000000000000021; };
