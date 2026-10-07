@@ -27,6 +27,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ipa:
+    name: Build Unsigned IPA
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Archive unsigned iOS app
+        run: |
+          xcodebuild archive \
+            -project iosApp/Jasmine.xcodeproj \
+            -scheme Jasmine \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/Jasmine.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/Jasmine.xcarchive/Products/Applications/Jasmine.app" "$RUNNER_TEMP/ipa/Payload/"
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa" "$RUNNER_TEMP/Jasmine-unsigned.ipa"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jasmine-ios-unsigned-${{ github.sha }}
+          path: ${{ runner.temp }}/Jasmine-unsigned.ipa
+          if-no-files-found: error
+
   native-validation:
     runs-on: macos-15
     steps:
@@ -63,6 +95,31 @@ jobs:
         with:
           name: jasmine-category-ios-arm64-${{ github.sha }}
           path: domain/category/build/bin/iosArm64/releaseFramework/JasmineCategory.framework
+          if-no-files-found: error
+
+      - name: Archive unsigned iOS app
+        run: |
+          xcodebuild archive \
+            -project iosApp/Jasmine.xcodeproj \
+            -scheme Jasmine \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/Jasmine.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/Jasmine.xcarchive/Products/Applications/Jasmine.app" "$RUNNER_TEMP/ipa/Payload/"
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa" "$RUNNER_TEMP/Jasmine-unsigned.ipa"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jasmine-ios-unsigned-${{ github.sha }}
+          path: ${{ runner.temp }}/Jasmine-unsigned.ipa
           if-no-files-found: error
 
       - name: Upload test reports

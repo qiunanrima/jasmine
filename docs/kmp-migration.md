@@ -27,7 +27,8 @@ the iOS simulator, and uploads the ARM64 device framework. It can be dispatched
 manually or triggered by shared-code changes on `feat/kmp-migration`.
 
 This artifact is a framework, not an IPA or a complete iOS application.
-The delivery target is a full iOS application packaged as an unsigned IPA.
+The repository now contains an unsigned iOS shell app at `iosApp/`. The
+workflow archives it and uploads an unsigned IPA.
 Once that application exists, archive it with code signing disabled and package
 the resulting device `.app` inside `Payload/` in a ZIP with the `.ipa` extension.
 An unsigned IPA requires signing before installation on a normal iOS device.
