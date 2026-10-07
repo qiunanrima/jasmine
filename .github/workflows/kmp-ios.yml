@@ -1,0 +1,72 @@
+name: KMP iOS Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/kmp-migration
+    paths:
+      - 'domain/category/**'
+      - 'kmp/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - '.github/workflows/kmp-ios.yml'
+  pull_request:
+    paths:
+      - 'domain/category/**'
+      - 'kmp/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - '.github/workflows/kmp-ios.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kmp-ios-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-validation:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version-file: .github/.java-version
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Inspect Xcode and simulator environment
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available
+
+      - name: Test shared code and build device framework
+        run: |
+          bash ./gradlew -p kmp \
+            :category:spotlessCheck \
+            :category:jvmTest \
+            :category:iosSimulatorArm64Test \
+            :category:linkReleaseFrameworkIosArm64 \
+            --console=plain
+
+      - name: Upload shared framework
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: jasmine-category-ios-arm64-${{ github.sha }}
+          path: domain/category/build/bin/iosArm64/releaseFramework/JasmineCategory.framework
+          if-no-files-found: error
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kmp-test-reports-${{ github.sha }}
+          path: domain/category/build/reports/tests
+          if-no-files-found: warn

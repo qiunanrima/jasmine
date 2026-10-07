@@ -9,7 +9,28 @@ change their imports or dependencies.
 
 The JVM target provides a host-side verification path on Windows and Linux.
 The iOS device and simulator targets require macOS and Xcode for compilation
-and execution. No iOS application or framework export is included yet.
+and execution. The module exports a static `JasmineCategory` framework. No iOS
+application is included yet.
+
+## Independent build and CI
+
+Use `./gradlew -p kmp` to build shared modules without the Android application,
+external sibling Java builds, or machine-specific root Gradle properties.
+In this isolated build, `:domain:category` is exposed as `:category`:
+
+```sh
+./gradlew -p kmp :category:jvmTest :category:spotlessCheck
+```
+
+The `KMP iOS Validation` workflow runs on macOS, tests shared code on JVM and
+the iOS simulator, and uploads the ARM64 device framework. It can be dispatched
+manually or triggered by shared-code changes on `feat/kmp-migration`.
+
+This artifact is a framework, not an IPA or a complete iOS application.
+The delivery target is a full iOS application packaged as an unsigned IPA.
+Once that application exists, archive it with code signing disabled and package
+the resulting device `.app` inside `Payload/` in a ZIP with the `.ipa` extension.
+An unsigned IPA requires signing before installation on a normal iOS device.
 
 Run the pilot checks:
 
