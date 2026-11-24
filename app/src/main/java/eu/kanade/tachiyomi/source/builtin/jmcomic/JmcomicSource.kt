@@ -28,6 +28,7 @@ import io.github.jukomu.jmcomic.core.config.JmConfiguration
 import io.github.jukomu.jmcomic.core.crypto.JmImageTool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -160,20 +161,20 @@ class JmcomicSource(
 
     override suspend fun fetchPopularComics(page: Int): AlignedPageResult {
         ensureLoggedIn()
-        return fetchChunkedComics("popular", page) { sPage ->
+        return parseSearchPage(run {
             val query = SearchQuery.builder()
                 .orderBy(OrderBy.MOST_LIKED)
-                .page(sPage)
+                .page(page)
                 .build()
             getClient().getCategories(query).getOrThrow()
-        }
+        })
     }
 
     override suspend fun fetchLatestComics(page: Int): AlignedPageResult {
         ensureLoggedIn()
-        return fetchChunkedComics("latest", page) { sPage ->
-            getClient().getLatest(sPage).getOrThrow()
-        }
+        return parseSearchPage(run {
+            getClient().getLatest(page).getOrThrow()
+        })
     }
 
     override val supportsFavorites: Boolean get() = isUserLoggedIn
@@ -194,21 +195,25 @@ class JmcomicSource(
         return AlignedPageResult(mangas, hasNext)
     }
 
-    override suspend fun addFavoriteComic(comicId: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val cleanId = extractComicId(comicId)
-        runCatching {
-            ensureLoggedIn()
-            getClient().favouriteComic(cleanId).getOrThrow()
-            Unit
-        }
-    }
+    private val favoriteMutex = kotlinx.coroutines.sync.Mutex()
 
-    override suspend fun removeFavoriteComic(comicId: String): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun addFavoriteComic(comicId: String) = setFavorite(comicId, true)
+
+    override suspend fun removeFavoriteComic(comicId: String) = setFavorite(comicId, false)
+
+    private suspend fun setFavorite(comicId: String, desired: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
         val cleanId = extractComicId(comicId)
-        runCatching {
-            ensureLoggedIn()
-            getClient().favouriteComic(cleanId).getOrThrow()
-            Unit
+        favoriteMutex.withLock {
+            runCatching {
+                ensureLoggedIn()
+                val client = getClient()
+                if (client.getComicDetail(cleanId).getOrThrow().isFavorite() != desired) {
+                    client.favouriteComic(cleanId).getOrThrow()
+                    check(client.getComicDetail(cleanId).getOrThrow().isFavorite() == desired) {
+                        "JMComic 收藏状态未更新"
+                    }
+                }
+            }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
         }
     }
 
@@ -303,14 +308,13 @@ class JmcomicSource(
         }
 
         val cleanQuery = query.trim()
-        val cacheKey = "search:$cleanQuery:${orderBy.name}:${category.name}"
 
-        return fetchChunkedComics(cacheKey, page) { sPage ->
+        return parseSearchPage(run {
             val queryBuilder = SearchQuery.builder()
                 .text(cleanQuery)
                 .orderBy(orderBy)
                 .category(category)
-                .page(sPage)
+                .page(page)
 
             val builtQuery = queryBuilder.build()
             if (cleanQuery.isBlank()) {
@@ -318,7 +322,7 @@ class JmcomicSource(
             } else {
                 getClient().searchComics(builtQuery).getOrThrow()
             }
-        }
+        })
     }
 
     override suspend fun fetchMangaDetails(comicId: String): SManga {
@@ -458,61 +462,6 @@ class JmcomicSource(
         screen.addPreference(proxyPortPref)
     }
 
-    private data class ServerCache(
-        val key: String,
-        val serverPage: Int,
-        val searchPage: JmSearchPage,
-    )
-
-    @Volatile
-    private var lastServerCache: ServerCache? = null
-
-    /**
-     * 将 JMComic 服务端默认返回的每页 80 条数据虚拟分块为每页 20 条，
-     * 显著降低主界面与图源浏览界面初次加载与渲染的负担，同时利用内存缓存避免滑动时重复请求。
-     */
-    private suspend fun fetchChunkedComics(
-        cacheKey: String,
-        clientPage: Int,
-        fetcher: suspend (serverPage: Int) -> JmSearchPage,
-    ): AlignedPageResult {
-        val chunksPerPage = ITEMS_PER_SERVER_PAGE / CLIENT_PAGE_SIZE
-        val serverPage = (clientPage - 1) / chunksPerPage + 1
-        val chunkIndex = (clientPage - 1) % chunksPerPage
-
-        val cached = lastServerCache
-        val searchPage = if (clientPage > 1 && cached != null && cached.key == cacheKey && cached.serverPage == serverPage) {
-            cached.searchPage
-        } else {
-            val fetched = fetcher(serverPage)
-            lastServerCache = ServerCache(cacheKey, serverPage, fetched)
-            fetched
-        }
-
-        val allItems = searchPage.content() ?: emptyList()
-        val start = chunkIndex * CLIENT_PAGE_SIZE
-        if (start >= allItems.size) {
-            return AlignedPageResult(emptyList(), false)
-        }
-        val end = minOf(start + CLIENT_PAGE_SIZE, allItems.size)
-        val chunk = allItems.subList(start, end)
-
-        val mangas = chunk.map { albumMeta ->
-            SManga.create().apply {
-                this.url = "/album/${albumMeta.id()}"
-                this.title = albumMeta.title().orEmpty()
-                this.author = albumMeta.authors()?.joinToString(", ").orEmpty()
-                this.thumbnail_url = albumMeta.image()
-            }
-        }
-
-        val hasMoreInCurrentServerPage = end < allItems.size
-        val hasNextServerPage = searchPage.currentPage() < searchPage.totalPages()
-        val hasNext = hasMoreInCurrentServerPage || hasNextServerPage
-
-        return AlignedPageResult(mangas, hasNext)
-    }
-
     private fun parseSearchPage(searchPage: JmSearchPage?): AlignedPageResult {
         if (searchPage == null || searchPage.content().isNullOrEmpty()) {
             return AlignedPageResult(emptyList(), false)
@@ -576,8 +525,6 @@ class JmcomicSource(
         private const val PREF_KEY_PROXY_HOST = "pref_jmcomic_proxy_host"
         private const val PREF_KEY_PROXY_PORT = "pref_jmcomic_proxy_port"
         private const val DEFAULT_DOMAIN = "www.cdnaspa.vip"
-        private const val CLIENT_PAGE_SIZE = 20
-        private const val ITEMS_PER_SERVER_PAGE = 80
 
         private val ORDER_LABELS = arrayOf("最新发布", "最多点击", "最多图片", "最多爱心")
         private val ORDER_VALUES = arrayOf(OrderBy.LATEST, OrderBy.MOST_VIEWED, OrderBy.MOST_IMAGES, OrderBy.MOST_LIKED)
