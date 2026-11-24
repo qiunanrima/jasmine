@@ -67,6 +67,8 @@ abstract class BaseAlignedMangaSource : HttpSource(), ConfigurableSource {
      */
     open val supportsFavorites: Boolean get() = false
 
+    open val favoriteAccountId: String? get() = savedAccount?.takeIf { isUserLoggedIn && it.isNotBlank() }
+
     /**
      * 分页异步获取当前登录用户的远程收藏列表。
      */
