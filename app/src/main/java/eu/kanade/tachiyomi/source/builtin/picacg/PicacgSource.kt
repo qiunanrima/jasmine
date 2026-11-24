@@ -9,6 +9,11 @@ import com.picaapi.Pica
 import com.picaapi.PicaClient
 import com.picaapi.PicaConfig
 import com.picaapi.PicaImageQuality
+import com.picaapi.PicaResult
+import com.picacomic.fregata.objects.requests.SignInBody
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.picaapi.PicaSort
 import com.picaapi.coverUrl
 import com.picaapi.toImageUrl
@@ -56,6 +61,10 @@ class PicacgSource(
         ?: PicaConfig.DEFAULT_BASE_URL
 
     private val tokenStore = FilePicaTokenStore(File(context.filesDir, "picacg_token.txt"))
+
+    private val loginMutex = Mutex()
+    private val sessionLock = Any()
+    private var sessionVersion = 0L
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -154,8 +163,8 @@ class PicacgSource(
                 requestBuilder.header("authorization", token)
             }
 
-            testClient.newCall(requestBuilder.build()).execute().use { _ ->
-                System.currentTimeMillis() - start
+            testClient.newCall(requestBuilder.build()).execute().use { response ->
+                if (response.isSuccessful) System.currentTimeMillis() - start else Long.MAX_VALUE
             }
         } catch (_: Exception) {
             Long.MAX_VALUE
@@ -168,7 +177,7 @@ class PicacgSource(
         }.awaitAll()
 
         val summary = results.joinToString(" | ") { (ch, latency) ->
-            val latencyStr = if (latency == Long.MAX_VALUE) "超时" else "${latency}ms"
+            val latencyStr = if (latency == Long.MAX_VALUE) "不可用" else "${latency}ms"
             "分流$ch: $latencyStr"
         }
 
@@ -208,8 +217,7 @@ class PicacgSource(
     override val supportsCategories: Boolean = true
 
     override suspend fun fetchCategories() = withContext(Dispatchers.IO) {
-        ensureLoggedIn()
-        val names = picaClient.getCategories().getOrThrow().categories.orEmpty()
+        val names = authenticated { getCategories() }.getOrThrow().categories.orEmpty()
             .filter { !it.isWeb }
             .mapNotNull { it.title?.takeIf(String::isNotBlank) }
             .distinct()
@@ -222,40 +230,53 @@ class PicacgSource(
     override val savedAccount: String?
         get() = getSourcePreferences().getString(PREF_KEY_EMAIL, null)
 
+    override val favoriteAccountId: String?
+        get() = synchronized(sessionLock) {
+            val prefs = getSourcePreferences()
+            val account = prefs.getString(PREF_KEY_SESSION_EMAIL, null) ?: savedAccount
+            account?.takeIf { isUserLoggedIn || !prefs.getString(PREF_KEY_PASSWORD, null).isNullOrBlank() }
+        }
+
     override suspend fun login(account: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val res = picaClient.login(account.trim(), password.trim())
-            if (res is com.picaapi.PicaResult.Success) {
-                tokenStore.saveToken(res.data.token)
-                getSourcePreferences().edit()
-                    .putString(PREF_KEY_EMAIL, account.trim())
-                    .putString(PREF_KEY_PASSWORD, password.trim())
-                    .apply()
-            } else if (res is com.picaapi.PicaResult.Failure) {
-                throw res.toException()
+            val version = synchronized(sessionLock) { ++sessionVersion }
+            loginMutex.withLock {
+                val token = requireNotNull(picaClient.signIn(SignInBody(account.trim(), password.trim())).getOrThrow().token)
+                synchronized(sessionLock) {
+                    check(version == sessionVersion) { "PicACG 会话已变更" }
+                    setToken(token)
+                    getSourcePreferences().edit()
+                        .putString(PREF_KEY_EMAIL, account.trim())
+                        .putString(PREF_KEY_SESSION_EMAIL, account.trim())
+                        .putString(PREF_KEY_PASSWORD, password.trim())
+                        .apply()
+                }
             }
-        }
+        }.onFailure { if (it is CancellationException) throw it }
     }
 
     override fun logout() {
-        tokenStore.saveToken(null)
-        picaClient.updateAuthorization(null)
-        getSourcePreferences().edit()
-            .remove(PREF_KEY_PASSWORD)
-            .apply()
+        synchronized(sessionLock) {
+            sessionVersion++
+            setToken(null)
+            getSourcePreferences().edit().remove(PREF_KEY_PASSWORD).apply()
+        }
+    }
+
+    private fun setToken(token: String?) {
+        tokenStore.saveToken(token)
+        picaClient.updateAuthorization(token)
     }
 
     override val client: OkHttpClient get() = picaClient.rawHttpClient
 
     override suspend fun fetchPopularComics(page: Int): AlignedPageResult {
-        ensureLoggedIn()
-        val res = picaClient.getComics(page = page, sort = PicaSort.MOST_LIKES).getOrThrow()
+        val res = authenticated { getComics(page = page, sort = PicaSort.MOST_LIKES) }.getOrThrow()
         return parseComicListData(res.comics)
     }
 
     override suspend fun fetchLatestComics(page: Int): AlignedPageResult {
-        ensureLoggedIn()
-        val res = picaClient.getComics(page = page, sort = PicaSort.NEWEST).getOrThrow()
+        val res = authenticated { getComics(page = page, sort = PicaSort.NEWEST) }.getOrThrow()
         return parseComicListData(res.comics)
     }
 
@@ -266,54 +287,37 @@ class PicacgSource(
     }
 
     suspend fun fetchFavoriteComics(page: Int, sort: String): AlignedPageResult {
-        ensureLoggedIn()
-        val res = picaClient.getFavouriteComics(sort = sort, page = page).getOrThrow()
+        val res = authenticated { getFavouriteComics(sort = sort, page = page) }.getOrThrow()
         return parseComicListData(res.comics)
     }
 
-    override suspend fun addFavoriteComic(comicId: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val cleanId = extractComicId(comicId)
-        runCatching {
-            ensureLoggedIn()
-            val res = picaClient.favouriteComic(cleanId)
-            if (res is com.picaapi.PicaResult.Failure) {
-                throw res.toException()
-            }
-            if (res is com.picaapi.PicaResult.Success && res.data.action == "un_favourite") {
-                val secondRes = picaClient.favouriteComic(cleanId)
-                if (secondRes is com.picaapi.PicaResult.Failure) {
-                    throw secondRes.toException()
-                }
-            }
-            Unit
-        }
-    }
+    private val favoriteMutex = Mutex()
 
-    override suspend fun removeFavoriteComic(comicId: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val cleanId = extractComicId(comicId)
+    override suspend fun addFavoriteComic(comicId: String) = setFavorite(comicId, true)
+
+    override suspend fun removeFavoriteComic(comicId: String) = setFavorite(comicId, false)
+
+    private suspend fun setFavorite(comicId: String, desired: Boolean): Result<Unit> = favoriteMutex.withLock {
         runCatching {
-            ensureLoggedIn()
-            val res = picaClient.favouriteComic(cleanId)
-            if (res is com.picaapi.PicaResult.Failure) {
-                throw res.toException()
-            }
-            if (res is com.picaapi.PicaResult.Success && res.data.action == "favourite") {
-                val secondRes = picaClient.favouriteComic(cleanId)
-                if (secondRes is com.picaapi.PicaResult.Failure) {
-                    throw secondRes.toException()
+            val cleanId = extractComicId(comicId)
+            val version = synchronized(sessionLock) { sessionVersion }
+            val comic = authenticated(version) { getComicDetail(cleanId) }.getOrThrow().comic
+                ?: error("无法查询 PicACG 收藏状态")
+            if (comic.isFavourite != desired) {
+                val action = authenticated(version) { favouriteComic(cleanId) }.getOrThrow().action
+                check(action == if (desired) "favourite" else "un_favourite") {
+                    "PicACG 收藏状态已变化，请重试"
                 }
             }
-            Unit
-        }
+        }.onFailure { if (it is CancellationException) throw it }
     }
 
     override val supportsComments: Boolean = true
     override val canPostComment: Boolean get() = isUserLoggedIn
 
     override suspend fun fetchComments(comicId: String, page: Int): AlignedCommentPage = withContext(Dispatchers.IO) {
-        ensureLoggedIn()
         val cleanId = extractComicId(comicId)
-        val res = picaClient.getComicComments(cleanId, page).getOrThrow()
+        val res = authenticated { getComicComments(cleanId, page) }.getOrThrow()
         val commentsData = res.comments
         val rawList = commentsData?.docs.orEmpty()
         val topList = if (page == 1) res.topComments.orEmpty() else emptyList()
@@ -356,28 +360,25 @@ class PicacgSource(
 
     override suspend fun postComment(comicId: String, content: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            ensureLoggedIn()
             val cleanId = extractComicId(comicId)
-            val res = picaClient.postComicComment(cleanId, content)
+            val res = authenticated { postComicComment(cleanId, content) }
             if (res is com.picaapi.PicaResult.Failure) {
                 throw res.toException()
             }
-        }
+        }.onFailure { if (it is CancellationException) throw it }
     }
 
     override suspend fun replyComment(commentId: String, content: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            ensureLoggedIn()
-            val res = picaClient.replyComment(commentId, content)
+            val res = authenticated { replyComment(commentId, content) }
             if (res is com.picaapi.PicaResult.Failure) {
                 throw res.toException()
             }
-        }
+        }.onFailure { if (it is CancellationException) throw it }
     }
 
     override suspend fun fetchCommentReplies(commentId: String, page: Int): AlignedCommentPage = withContext(Dispatchers.IO) {
-        ensureLoggedIn()
-        val res = picaClient.getCommentChildren(commentId, page).getOrThrow()
+        val res = authenticated { getCommentChildren(commentId, page) }.getOrThrow()
         val commentsData = res.comments
         val rawList = commentsData?.docs.orEmpty()
         val imageServer = picaClient.config.imageServer
@@ -417,16 +418,14 @@ class PicacgSource(
 
     override suspend fun likeComment(commentId: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            ensureLoggedIn()
-            val res = picaClient.likeComment(commentId)
+            val res = authenticated { likeComment(commentId) }
             if (res is com.picaapi.PicaResult.Failure) {
                 throw res.toException()
             }
-        }
+        }.onFailure { if (it is CancellationException) throw it }
     }
 
     override suspend fun fetchSearchComics(page: Int, query: String, filters: FilterList): AlignedPageResult {
-        ensureLoggedIn()
         var category: String? = null
         var sort = PicaSort.NEWEST
 
@@ -445,16 +444,15 @@ class PicacgSource(
         }
 
         val res = if (query.isNotBlank()) {
-            picaClient.searchComics(keyword = query.trim(), sort = sort, page = page).getOrThrow()
+            authenticated { searchComics(keyword = query.trim(), sort = sort, categories = category?.let { listOf(it) }, page = page) }.getOrThrow()
         } else {
-            picaClient.getComics(page = page, category = category, sort = sort).getOrThrow()
+            authenticated { getComics(page = page, category = category, sort = sort) }.getOrThrow()
         }
         return parseComicListData(res.comics)
     }
 
     override suspend fun fetchMangaDetails(comicId: String): SManga {
-        ensureLoggedIn()
-        val detail = picaClient.getComicDetail(comicId).getOrThrow().comic
+        val detail = authenticated { getComicDetail(comicId) }.getOrThrow().comic
             ?: throw IllegalStateException("未获取到漫画详情: $comicId")
 
         return SManga.create().apply {
@@ -478,11 +476,10 @@ class PicacgSource(
      * 获取所有章节。由于 PicACG 接口章节做了分页 (20 条/页)，此处遍历所有分页合并。
      */
     override suspend fun fetchChapterList(comicId: String): List<SChapter> {
-        ensureLoggedIn()
         val allEpisodes = mutableListOf<ComicEpisodeObject>()
         var currentPage = 1
         while (true) {
-            val response = picaClient.getComicEpisodes(comicId, page = currentPage).getOrThrow()
+            val response = authenticated { getComicEpisodes(comicId, page = currentPage) }.getOrThrow()
             val epsData = response.eps ?: break
             val docs = epsData.docs ?: emptyList()
             allEpisodes.addAll(docs)
@@ -503,13 +500,12 @@ class PicacgSource(
     }
 
     override suspend fun fetchComicPages(chapter: SChapter): List<Page> {
-        ensureLoggedIn()
         // 章节 URL 形如 /comics/{comicId}/order/{order}?epId={epId}。
         // 不能用 extractComicId()（它对章节 URL 会错误地取到末尾的 order，
         // 导致服务端返回 400/1022 "invalid id"）。
         val comicId = chapter.url.substringAfter("/comics/").substringBefore("/order/")
         val order = chapter.url.substringAfter("/order/").substringBefore('?').toIntOrNull() ?: 1
-        val pages = picaClient.getAllComicPagesByOrder(comicId, order).getOrThrow()
+        val pages = authenticated { getAllComicPagesByOrder(comicId, order) }.getOrThrow()
 
         return pages.mapIndexed { index, pageObj ->
             val imgUrl = pageObj.toImageUrl(picaClient.config.imageServer).orEmpty()
@@ -524,16 +520,9 @@ class PicacgSource(
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val accountPref = EditTextPreference(screen.context).apply {
-            key = PREF_KEY_EMAIL
             title = "账号 / 邮箱"
-            summary = "用于登录 PicACG"
-            dialogTitle = "输入账号或邮箱"
-        }
-        val passwordPref = EditTextPreference(screen.context).apply {
-            key = PREF_KEY_PASSWORD
-            title = "密码"
-            summary = "用于登录 PicACG"
-            dialogTitle = "输入密码"
+            summary = savedAccount ?: "请通过图源页面登录"
+            isEnabled = false
         }
         val channelPref = ListPreference(screen.context).apply {
             key = PREF_KEY_CHANNEL
@@ -562,7 +551,7 @@ class PicacgSource(
                     withContext(Dispatchers.Main) {
                         channelPref.summary = getChannelSummaryText(CHANNEL_AUTO)
                         val summaryText = results.joinToString(" | ") { (ch, latency) ->
-                            val latencyStr = if (latency == Long.MAX_VALUE) "超时" else "${latency}ms"
+                            val latencyStr = if (latency == Long.MAX_VALUE) "不可用" else "${latency}ms"
                             "分流$ch: $latencyStr"
                         }
                         speedTestPref.summary = "$summaryText\n点击重新测速"
@@ -583,12 +572,14 @@ class PicacgSource(
                     val currentMode = getSourcePreferences().getString(PREF_KEY_CHANNEL, CHANNEL_AUTO) ?: CHANNEL_AUTO
                     channelPref.summary = getChannelSummaryText(currentMode)
                     val summaryText = results.joinToString(" | ") { (ch, latency) ->
-                        val latencyStr = if (latency == Long.MAX_VALUE) "超时" else "${latency}ms"
+                        val latencyStr = if (latency == Long.MAX_VALUE) "不可用" else "${latency}ms"
                         "分流$ch: $latencyStr"
                     }
                     speedTestPref.summary = "$summaryText\n点击重新测速"
                     val activeCh = getEffectiveChannel()
-                    val msg = if (currentMode == CHANNEL_AUTO) {
+                    val msg = if (results.none { it.second < Long.MAX_VALUE }) {
+                        "测速失败，保留当前分流。\n$summaryText"
+                    } else if (currentMode == CHANNEL_AUTO) {
                         "测速完成！已自动选取最优分流 $activeCh\n$summaryText"
                     } else {
                         "测速完成！当前保持手动分流 $activeCh（用户设置优先）\n$summaryText"
@@ -624,7 +615,6 @@ class PicacgSource(
         }
 
         screen.addPreference(accountPref)
-        screen.addPreference(passwordPref)
         screen.addPreference(channelPref)
         screen.addPreference(speedTestPref)
         screen.addPreference(qualityPref)
@@ -655,28 +645,61 @@ class PicacgSource(
         return AlignedPageResult(mangas, hasNext)
     }
 
-    private fun ensureLoggedIn() {
-        if (picaClient.authorization.isNullOrBlank()) {
-            val token = tokenStore.loadToken()
-            if (!token.isNullOrBlank()) {
-                picaClient.updateAuthorization(token)
-                return
-            }
-            val email = getSourcePreferences().getString(PREF_KEY_EMAIL, null)
-            val password = getSourcePreferences().getString(PREF_KEY_PASSWORD, null)
-            if (!email.isNullOrBlank() && !password.isNullOrBlank()) {
-                val loginResult = picaClient.login(email.trim(), password.trim())
-                if (loginResult is com.picaapi.PicaResult.Success) {
-                    tokenStore.saveToken(loginResult.data.token)
-                    return
-                } else if (loginResult is com.picaapi.PicaResult.Failure) {
-                    val err = loginResult.toException()
-                    throw IllegalStateException("PicACG 登录失败: ${err.message}", err)
+    private fun PicaResult.Failure.isSessionExpired() = httpCode == 401 || errorCode == "1005"
+
+    private suspend fun <T> authenticated(
+        version: Long = synchronized(sessionLock) { sessionVersion },
+        call: PicaClient.() -> PicaResult<T>,
+    ): PicaResult<T> =
+        withContext(Dispatchers.IO) {
+            suspend fun recover(rejectedToken: String?): String = loginMutex.withLock {
+                val credentials = synchronized(sessionLock) {
+                    check(version == sessionVersion) { "PicACG 会话已变更" }
+                    val active = picaClient.authorization
+                    if (!active.isNullOrBlank() && active != rejectedToken) return@withLock active
+                    val prefs = getSourcePreferences()
+                    val email = prefs.getString(PREF_KEY_SESSION_EMAIL, null) ?: prefs.getString(PREF_KEY_EMAIL, null)
+                    val password = prefs.getString(PREF_KEY_PASSWORD, null)
+                    if (email.isNullOrBlank() || password.isNullOrBlank()) {
+                        setToken(null)
+                        error("请重新登录 PicACG")
+                    }
+                    email to password
+                }
+                val result = picaClient.signIn(SignInBody(credentials.first, credentials.second))
+                synchronized(sessionLock) {
+                    check(version == sessionVersion) { "PicACG 会话已变更" }
+                    if (result is PicaResult.Failure && (result.httpCode == 401 || result.httpCode == 403)) {
+                        setToken(null)
+                        getSourcePreferences().edit().remove(PREF_KEY_PASSWORD).apply()
+                        throw IllegalStateException("请重新登录 PicACG", result.toException())
+                    }
+                    result.getOrThrow().token.also { setToken(it) }
                 }
             }
-            throw IllegalStateException("PicACG 需要登录才能浏览。请点击屏幕下方或右上角的【登录账号】。")
+
+            val token = picaClient.authorization?.takeIf { it.isNotBlank() } ?: recover(null)
+            val result = loginMutex.withLock {
+                synchronized(sessionLock) { check(version == sessionVersion) { "PicACG 会话已变更" } }
+                picaClient.call()
+            }
+            synchronized(sessionLock) { check(version == sessionVersion) { "PicACG 会话已变更" } }
+            if (result !is PicaResult.Failure || !result.isSessionExpired()) return@withContext result
+            val renewed = recover(token)
+            val retry = loginMutex.withLock {
+                synchronized(sessionLock) { check(version == sessionVersion) { "PicACG 会话已变更" } }
+                picaClient.call()
+            }
+            synchronized(sessionLock) {
+                check(version == sessionVersion) { "PicACG 会话已变更" }
+                if (retry is PicaResult.Failure && retry.isSessionExpired() && picaClient.authorization == renewed) {
+                    setToken(null)
+                    getSourcePreferences().edit().remove(PREF_KEY_PASSWORD).apply()
+                    error("请重新登录 PicACG")
+                }
+            }
+            retry
         }
-    }
 
     private fun parseIsoDate(isoString: String?): Long {
         if (isoString.isNullOrBlank()) return 0L
@@ -690,6 +713,7 @@ class PicacgSource(
     private class CategoryFilter(values: Array<String> = CATEGORIES) : Filter.Select<String>("分类过滤", values, 0)
 
     companion object {
+        private const val PREF_KEY_SESSION_EMAIL = "pref_picacg_session_email"
         private const val PREF_KEY_EMAIL = "pref_picacg_email"
         private const val PREF_KEY_PASSWORD = "pref_picacg_password"
         private const val PREF_KEY_IMAGE_QUALITY = "pref_picacg_quality"

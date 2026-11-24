@@ -156,11 +156,23 @@ data object LibraryTab : Tab {
             started
         }
 
+        var syncing by remember { mutableStateOf(false) }
         val onClickSync: () -> Unit = {
-            scope.launch {
-                snackbarHostState.showSnackbar("正在同步各账号收藏...")
-                val result = libraryFavoritesSync.syncAll()
-                snackbarHostState.showSnackbar("同步完成：上传 ${result.uploaded} 本，下载 ${result.downloaded} 本")
+            if (!syncing) {
+                syncing = true
+                scope.launch {
+                    val progress = launch { snackbarHostState.showSnackbar("正在同步各账号收藏…") }
+                    val message = try {
+                        val result = libraryFavoritesSync.syncAll()
+                        val summary = "上传 ${result.uploaded} 本，下载 ${result.downloaded} 本"
+                        if (result.failures.isEmpty()) "同步完成 · $summary"
+                        else "同步未完成 · $summary · ${result.failures.joinToString("、")}"
+                    } finally {
+                        progress.cancel()
+                        syncing = false
+                    }
+                    snackbarHostState.showSnackbar(message)
+                }
             }
         }
 
