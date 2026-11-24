@@ -125,6 +125,7 @@ class MangaViewModel(
     private val sourceManager: SourceManager,
     private val refreshTracks: RefreshTracks,
     private val coverCache: CoverCache,
+    private val libraryFavoritesSync: eu.kanade.tachiyomi.data.library.LibraryFavoritesSync,
 ) : ViewModel() {
 
     val state: StateFlow<MangaViewModel.State>
@@ -346,11 +347,8 @@ class MangaViewModel(
 
             if (isFavorited) {
                 // Remove from library
-                if (updateManga.awaitUpdateFavorite(manga.id, false)) {
-                    val currentSource = state.source
-                    if (currentSource is BaseAlignedMangaSource && currentSource.supportsFavorites && currentSource.isUserLoggedIn) {
-                        runCatching { currentSource.removeFavoriteComic(manga.url) }
-                    }
+                if (libraryFavoritesSync.setLibraryFavorite(state.source, manga, false)) {
+                    viewModelScope.launchIO { libraryFavoritesSync.syncRemoteFavorites() }
                     // Remove covers and update last modified in db
                     if (manga.removeCovers(coverCache) != manga) {
                         updateManga.awaitUpdateCoverLastModified(manga.id)
@@ -370,7 +368,7 @@ class MangaViewModel(
                 }
 
                 // Add to library
-                val result = updateManga.awaitUpdateFavorite(manga.id, true)
+                val result = libraryFavoritesSync.setLibraryFavorite(state.source, manga, true)
                 if (!result) return@launchIO
 
                 // 自动按 API / 图源名称分类
@@ -398,11 +396,8 @@ class MangaViewModel(
                     moveMangaToCategory(null)
                 }
 
-                // 若图源支持远程收藏且已登录，调用 API 加入远程收藏夹
-                if (currentSource is BaseAlignedMangaSource && currentSource.supportsFavorites && currentSource.isUserLoggedIn) {
-                    runCatching {
-                        currentSource.addFavoriteComic(manga.url)
-                    }
+                if (currentSource is BaseAlignedMangaSource && currentSource.supportsFavorites) {
+                    viewModelScope.launchIO { libraryFavoritesSync.syncRemoteFavorites() }
                 }
 
                 // Finally match with enhanced tracking when available
@@ -489,10 +484,11 @@ class MangaViewModel(
         if (manga.favorite) return
 
         viewModelScope.launchIO {
-            updateManga.awaitUpdateFavorite(manga.id, true)
-            val currentSource = sourceManager.get(manga.source)
-            if (currentSource is BaseAlignedMangaSource && currentSource.supportsFavorites && currentSource.isUserLoggedIn) {
-                runCatching { currentSource.addFavoriteComic(manga.url) }
+            val source = sourceManager.get(manga.source)
+            if (libraryFavoritesSync.setLibraryFavorite(source, manga, true) &&
+                source is BaseAlignedMangaSource && source.supportsFavorites
+            ) {
+                libraryFavoritesSync.syncRemoteFavorites()
             }
         }
     }
