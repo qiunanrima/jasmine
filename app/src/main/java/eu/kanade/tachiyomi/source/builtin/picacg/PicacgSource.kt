@@ -230,16 +230,24 @@ class PicacgSource(
     override val savedAccount: String?
         get() = getSourcePreferences().getString(PREF_KEY_EMAIL, null)
 
+    override val favoriteAccountId: String?
+        get() = synchronized(sessionLock) {
+            val prefs = getSourcePreferences()
+            val account = prefs.getString(PREF_KEY_SESSION_EMAIL, null) ?: savedAccount
+            account?.takeIf { isUserLoggedIn || !prefs.getString(PREF_KEY_PASSWORD, null).isNullOrBlank() }
+        }
+
     override suspend fun login(account: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val version = synchronized(sessionLock) { ++sessionVersion }
             loginMutex.withLock {
-                val token = picaClient.signIn(SignInBody(account.trim(), password.trim())).getOrThrow().token
+                val token = requireNotNull(picaClient.signIn(SignInBody(account.trim(), password.trim())).getOrThrow().token)
                 synchronized(sessionLock) {
                     check(version == sessionVersion) { "PicACG 会话已变更" }
                     setToken(token)
                     getSourcePreferences().edit()
                         .putString(PREF_KEY_EMAIL, account.trim())
+                        .putString(PREF_KEY_SESSION_EMAIL, account.trim())
                         .putString(PREF_KEY_PASSWORD, password.trim())
                         .apply()
                 }
@@ -512,16 +520,9 @@ class PicacgSource(
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val accountPref = EditTextPreference(screen.context).apply {
-            key = PREF_KEY_EMAIL
             title = "账号 / 邮箱"
-            summary = "用于登录 PicACG"
-            dialogTitle = "输入账号或邮箱"
-        }
-        val passwordPref = EditTextPreference(screen.context).apply {
-            key = PREF_KEY_PASSWORD
-            title = "密码"
-            summary = "用于登录 PicACG"
-            dialogTitle = "输入密码"
+            summary = savedAccount ?: "请通过图源页面登录"
+            isEnabled = false
         }
         val channelPref = ListPreference(screen.context).apply {
             key = PREF_KEY_CHANNEL
@@ -614,7 +615,6 @@ class PicacgSource(
         }
 
         screen.addPreference(accountPref)
-        screen.addPreference(passwordPref)
         screen.addPreference(channelPref)
         screen.addPreference(speedTestPref)
         screen.addPreference(qualityPref)
@@ -658,7 +658,7 @@ class PicacgSource(
                     val active = picaClient.authorization
                     if (!active.isNullOrBlank() && active != rejectedToken) return@withLock active
                     val prefs = getSourcePreferences()
-                    val email = prefs.getString(PREF_KEY_EMAIL, null)
+                    val email = prefs.getString(PREF_KEY_SESSION_EMAIL, null) ?: prefs.getString(PREF_KEY_EMAIL, null)
                     val password = prefs.getString(PREF_KEY_PASSWORD, null)
                     if (email.isNullOrBlank() || password.isNullOrBlank()) {
                         setToken(null)
@@ -713,6 +713,7 @@ class PicacgSource(
     private class CategoryFilter(values: Array<String> = CATEGORIES) : Filter.Select<String>("分类过滤", values, 0)
 
     companion object {
+        private const val PREF_KEY_SESSION_EMAIL = "pref_picacg_session_email"
         private const val PREF_KEY_EMAIL = "pref_picacg_email"
         private const val PREF_KEY_PASSWORD = "pref_picacg_password"
         private const val PREF_KEY_IMAGE_QUALITY = "pref_picacg_quality"
