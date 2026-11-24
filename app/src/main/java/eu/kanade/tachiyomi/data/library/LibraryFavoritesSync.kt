@@ -1,9 +1,15 @@
 package eu.kanade.tachiyomi.data.library
 
+import android.content.Context
+import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.domain.manga.model.toDomainManga
@@ -15,9 +21,12 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.domain.manga.model.Manga
 
 @Inject
+@SingleIn(AppScope::class)
 class LibraryFavoritesSync(
+    context: Context,
     private val sourceManager: SourceManager,
     private val getCategories: GetCategories,
     private val createCategoryWithName: CreateCategoryWithName,
@@ -58,117 +67,94 @@ class LibraryFavoritesSync(
         }
     }
 
-    /**
-     * 每次打开收藏页时调用：加载各登录账号的远程收藏漫画，加入本地书架，并自动按 API 名分类。
-     */
-    suspend fun syncRemoteFavorites(): Unit = withContext(Dispatchers.IO) {
-        // 1. 先确保本地现有漫画都归入对应 API 分类
-        categorizeUncategorizedManga()
+    private val mutex = Mutex()
+    private val pending = context.getSharedPreferences("pending_remote_favorites", Context.MODE_PRIVATE)
 
-        // 2. 遍历已对齐且支持收藏并已登录的图源
-        val sources = sourceManager.getOnlineSources()
-        for (source in sources) {
-            if (source is BaseAlignedMangaSource && source.supportsFavorites && source.isUserLoggedIn) {
+    private fun prefix(source: BaseAlignedMangaSource, account: String) = "${source.id}:${account.length}:$account:"
+
+    suspend fun setLibraryFavorite(source: Any?, manga: Manga, desired: Boolean): Boolean = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val aligned = (source as? BaseAlignedMangaSource)?.takeIf { it.supportsFavorites }
+            val account = aligned?.favoriteAccountId
+            if (!updateManga.awaitUpdateFavorite(manga.id, desired)) return@withLock false
+            if (aligned != null && account != null) {
+                pending.edit().putBoolean(prefix(aligned, account) + manga.url, desired).apply()
+            }
+            true
+        }
+    }
+
+    suspend fun syncRemoteFavorites() {
+        sync(full = false)
+    }
+
+    suspend fun syncAll(sourceId: Long? = null): SyncResult = sync(full = true, sourceId = sourceId)
+
+    private suspend fun sync(full: Boolean, sourceId: Long? = null): SyncResult = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            var uploaded = 0
+            var downloaded = 0
+            val failures = mutableListOf<String>()
+            val sources = if (sourceId == null) sourceManager.getOnlineSources() else listOfNotNull(sourceManager.get(sourceId))
+            for (source in sources.filterIsInstance<BaseAlignedMangaSource>()) {
+                if (!source.supportsFavorites) continue
+                val account = source.favoriteAccountId ?: continue
+                val prefix = prefix(source, account)
+                val changes = pending.all.filterKeys { it.startsWith(prefix) }
+                var page = 1
                 try {
                     val category = getOrCreateCategory(source.name)
-                    var page = 1
-                    var hasNext = true
-                    val maxPages = 5 // 打开书架时默认预加载前 5 页收藏
-                    while (hasNext && page <= maxPages) {
+                    val remoteIds = mutableSetOf<String>()
+                    var complete: Boolean
+                    while (true) {
+                        check(source.favoriteAccountId == account) { "账号已切换" }
                         val result = source.fetchFavoriteComics(page)
-                        for (sManga in result.mangas) {
-                            try {
-                                val domainManga = sManga.toDomainManga(source.id)
-                                val localManga = networkToLocalManga(domainManga)
-                                // Existing favorites keep their date added and user-assigned categories.
-                                if (!localManga.favorite) {
-                                    updateManga.awaitUpdateFavorite(localManga.id, true)
-                                    if (category != null) {
-                                        setMangaCategories.await(localManga.id, listOf(category.id))
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                logcat(LogPriority.WARN, e) { "Failed to sync remote favorite to library: ${sManga.title}" }
+                        check(source.favoriteAccountId == account) { "账号已切换" }
+                        val newItems = result.mangas.filter { remoteIds.add(source.extractComicId(it.url)) }
+                        check(!result.hasNextPage || newItems.isNotEmpty()) { "服务端重复返回同一页" }
+                        for (manga in newItems) {
+                            val id = source.extractComicId(manga.url)
+                            if (changes.any { (key, desired) -> desired == false && source.extractComicId(key.removePrefix(prefix)) == id }) continue
+                            val local = networkToLocalManga(manga.toDomainManga(source.id))
+                            if (!local.favorite && updateManga.awaitUpdateFavorite(local.id, true)) {
+                                downloaded++
+                                if (category != null) setMangaCategories.await(local.id, listOf(category.id))
                             }
                         }
-                        hasNext = result.hasNextPage
+                        complete = !result.hasNextPage
+                        if (complete || (!full && page == 5)) break
                         page++
+                    }
+                    for ((key, value) in changes) {
+                        val desired = value as? Boolean ?: continue
+                        val url = key.removePrefix(prefix)
+                        val exists = source.extractComicId(url) in remoteIds
+                        if (!complete && !exists) continue
+                        try {
+                            check(source.favoriteAccountId == account) { "账号已切换" }
+                            if (exists != desired) {
+                                val result = if (desired) source.addFavoriteComic(url) else source.removeFavoriteComic(url)
+                                result.getOrThrow()
+                                check(source.favoriteAccountId == account) { "账号已切换" }
+                                if (desired) uploaded++
+                            }
+                            pending.edit().remove(key).apply()
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                            failures.add("${source.name}收藏变更失败")
+                            logcat(LogPriority.WARN, e) { "Failed to apply favorite change" }
+                        }
                     }
                 } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Failed to fetch remote favorites for ${source.name}" }
+                    if (e is CancellationException) throw e
+                    failures.add("${source.name}第 ${page} 页失败")
+                    logcat(LogPriority.WARN, e) { "Failed to load remote favorites" }
                 }
             }
+            categorizeUncategorizedManga()
+            SyncResult(uploaded, downloaded, failures.distinct())
         }
     }
 
-    /**
-     * 一键全量双向同步：
-     * 1. 将本地书架属于该 API 的漫画上传推送到远程收藏夹；
-     * 2. 将远程收藏夹中的漫画下载保存到本地书架并按 API 分类。
-     */
-    suspend fun syncAll(sourceId: Long? = null): SyncResult = withContext(Dispatchers.IO) {
-        var uploadedCount = 0
-        var downloadedCount = 0
-
-        val sources = if (sourceId != null) {
-            listOfNotNull(sourceManager.get(sourceId))
-        } else {
-            sourceManager.getOnlineSources()
-        }
-
-        val libraryManga = getLibraryManga.await()
-
-        for (source in sources) {
-            if (source is BaseAlignedMangaSource && source.supportsFavorites && source.isUserLoggedIn) {
-                val category = getOrCreateCategory(source.name)
-
-                // 阶段 A：将本地属于该 API 的漫画推送同步到远程收藏
-                val localOfSource = libraryManga.filter { it.manga.source == source.id }
-                for (item in localOfSource) {
-                    try {
-                        val res = source.addFavoriteComic(item.manga.url)
-                        if (res.isSuccess) {
-                            uploadedCount++
-                        }
-                    } catch (e: Exception) {
-                        logcat(LogPriority.WARN, e) { "Failed to push favorite to remote: ${item.manga.title}" }
-                    }
-                }
-
-                // 阶段 B：从远程收藏全量拉取并同步到本地书架
-                var page = 1
-                var hasNext = true
-                while (hasNext && page <= 20) {
-                    try {
-                        val result = source.fetchFavoriteComics(page)
-                        for (sManga in result.mangas) {
-                            try {
-                                val domainManga = sManga.toDomainManga(source.id)
-                                val localManga = networkToLocalManga(domainManga)
-                                if (!localManga.favorite) {
-                                    updateManga.awaitUpdateFavorite(localManga.id, true)
-                                    downloadedCount++
-                                    if (category != null) {
-                                        setMangaCategories.await(localManga.id, listOf(category.id))
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                logcat(LogPriority.WARN, e) { "Failed to pull remote favorite: ${sManga.title}" }
-                            }
-                        }
-                        hasNext = result.hasNextPage
-                        page++
-                    } catch (e: Exception) {
-                        logcat(LogPriority.ERROR, e) { "Error fetching remote favorites page $page" }
-                        break
-                    }
-                }
-            }
-        }
-
-        categorizeUncategorizedManga()
-        SyncResult(uploaded = uploadedCount, downloaded = downloadedCount)
-    }
-
-    data class SyncResult(val uploaded: Int, val downloaded: Int)
+    data class SyncResult(val uploaded: Int, val downloaded: Int, val failures: List<String>)
 }
