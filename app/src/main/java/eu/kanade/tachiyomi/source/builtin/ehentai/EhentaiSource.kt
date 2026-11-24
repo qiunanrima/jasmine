@@ -117,6 +117,11 @@ class EhentaiSource(
     override val savedAccount: String?
         get() = if (isUserLoggedIn) "已登录 E-Hentai" else null
 
+    override val favoriteAccountId: String?
+        get() = getSourcePreferences().getString(PREF_KEY_COOKIE, null).orEmpty()
+            .split(';').map(String::trim).firstOrNull { it.startsWith("ipb_member_id=") }
+            ?.substringAfter('=')?.takeIf { isUserLoggedIn }
+
     override val supportsFavorites: Boolean
         get() = isUserLoggedIn
 
