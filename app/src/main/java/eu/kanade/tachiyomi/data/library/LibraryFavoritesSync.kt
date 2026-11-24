@@ -6,6 +6,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
+import eu.kanade.tachiyomi.source.Source
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -72,7 +73,7 @@ class LibraryFavoritesSync(
 
     private fun prefix(source: BaseAlignedMangaSource, account: String) = "${source.id}:${account.length}:$account:"
 
-    suspend fun setLibraryFavorite(source: Any?, manga: Manga, desired: Boolean): Boolean = withContext(Dispatchers.IO) {
+    suspend fun setLibraryFavorite(source: Source?, manga: Manga, desired: Boolean): Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
             val aligned = (source as? BaseAlignedMangaSource)?.takeIf { it.supportsFavorites }
             val account = aligned?.favoriteAccountId
@@ -98,7 +99,11 @@ class LibraryFavoritesSync(
             val sources = if (sourceId == null) sourceManager.getOnlineSources() else listOfNotNull(sourceManager.get(sourceId))
             for (source in sources.filterIsInstance<BaseAlignedMangaSource>()) {
                 if (!source.supportsFavorites) continue
-                val account = source.favoriteAccountId ?: continue
+                val account = source.favoriteAccountId
+                if (account == null) {
+                    if (full && source.savedAccount != null) failures.add("${source.name}需要登录")
+                    continue
+                }
                 val prefix = prefix(source, account)
                 val changes = pending.all.filterKeys { it.startsWith(prefix) }
                 var page = 1
