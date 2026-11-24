@@ -55,6 +55,8 @@ import eu.kanade.tachiyomi.source.builtin.base.AlignedPageResult
 import eu.kanade.tachiyomi.source.builtin.base.BaseAlignedMangaSource
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -152,28 +154,38 @@ open class BaseRemoteFavoritesScreen(
         var isLoadingMore by remember { mutableStateOf(false) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
 
+        var generation by remember { mutableIntStateOf(0) }
+        var pageJob by remember { mutableStateOf<Job?>(null) }
+
         val loadData: (isRefresh: Boolean) -> Unit = { isRefresh ->
             val curSource = source
             if (curSource != null) {
+                val requestGeneration = ++generation
+                pageJob?.cancel()
+                isLoadingMore = false
                 if (isRefresh) {
                     isRefreshing = true
                 } else {
                     isLoading = true
                 }
                 errorMessage = null
-                scope.launch {
+                pageJob = scope.launch {
                     try {
                         val result = withContext(Dispatchers.IO) {
                             loadPage(curSource, 1)
                         }
+                        if (requestGeneration != generation) return@launch
                         items = result.mangas
                         currentPage = 1
                         hasNextPage = result.hasNextPage
                     } catch (e: Throwable) {
-                        errorMessage = e.message ?: "加载收藏列表失败"
+                        if (e is CancellationException) throw e
+                        if (requestGeneration == generation) errorMessage = e.message ?: "加载收藏列表失败"
                     } finally {
-                        isLoading = false
-                        isRefreshing = false
+                        if (requestGeneration == generation) {
+                            isLoading = false
+                            isRefreshing = false
+                        }
                     }
                 }
             }
@@ -183,20 +195,23 @@ open class BaseRemoteFavoritesScreen(
             val curSource = source
             if (curSource != null && hasNextPage && !isLoadingMore && !isLoading && !isRefreshing) {
                 isLoadingMore = true
+                val requestGeneration = generation
                 val nextPage = currentPage + 1
-                scope.launch {
+                pageJob = scope.launch {
                     try {
                         val result = withContext(Dispatchers.IO) {
                             loadPage(curSource, nextPage)
                         }
+                        if (requestGeneration != generation) return@launch
                         val newItems = result.mangas
                         items = items + newItems
                         currentPage = nextPage
                         hasNextPage = result.hasNextPage
                     } catch (e: Throwable) {
-                        snackbarHostState.showSnackbar("加载更多失败: ${e.message ?: "未知错误"}")
+                        if (e is CancellationException) throw e
+                        if (requestGeneration == generation) snackbarHostState.showSnackbar("加载更多失败: ${e.message ?: "未知错误"}")
                     } finally {
-                        isLoadingMore = false
+                        if (requestGeneration == generation) isLoadingMore = false
                     }
                 }
             }
